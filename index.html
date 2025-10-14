@@ -28,7 +28,7 @@
         <div class="tab-navigation">
             <button class="tab-button active" onclick="showTab('dashboard')">휴가/연차/월차</button>
             <button class="tab-button" onclick="showTab('overtime')">야근 관리</button>
-            <button class="tab-button" onclick="showTab('hr')">HR 관리</button>
+            <button class="tab-button" onclick="event.stopPropagation(); showTab('hr')">HR 관리</button>
         </div>
 
         <div class="main-content">
