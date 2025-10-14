@@ -2761,8 +2761,17 @@ function showTab(tabName) {
         content.classList.remove('active');
     });
     
-    // 선택된 탭 활성화
-    event.target.classList.add('active');
+    // 선택된 탭 활성화 - 클릭된 버튼 찾기
+    const activeButton = Array.from(document.querySelectorAll('.tab-button')).find(btn => {
+        const btnText = btn.textContent.trim();
+        if (tabName === 'dashboard') return btnText.includes('휴가');
+        if (tabName === 'overtime') return btnText.includes('야근');
+        if (tabName === 'hr') return btnText.includes('HR');
+        return false;
+    });
+    if (activeButton) {
+        activeButton.classList.add('active');
+    }
     
     if (tabName === 'dashboard') {
         document.getElementById('dashboardTab').classList.add('active');
