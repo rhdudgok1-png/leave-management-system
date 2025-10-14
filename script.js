@@ -152,6 +152,23 @@ async function loadHolidays(year) {
     }
 }
 
+// 날짜 입력 필드에 오늘 날짜 기본값 설정
+function setDefaultDates() {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 야근 날짜 기본값
+    const overtimeDate = document.getElementById('overtimeDate');
+    if (overtimeDate && !overtimeDate.value) {
+        overtimeDate.value = today;
+    }
+    
+    // HR 입사일 기본값 (신규 등록 시만)
+    const hrJoinDate = document.getElementById('hrJoinDate');
+    if (hrJoinDate && !hrJoinDate.value) {
+        hrJoinDate.value = today;
+    }
+}
+
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', async function() {
     // Firebase 초기화 시도 (이메일/비밀번호 인증)
@@ -205,8 +222,35 @@ async function addEmployee() {
     const name = document.getElementById('employeeName').value.trim();
     const joinDate = document.getElementById('joinDate').value;
     
+    // 입력 검증 강화
     if (!name || !joinDate) {
         alert('직원 이름과 입사일을 입력해주세요.');
+        return;
+    }
+    
+    // 이름 길이 및 형식 검증
+    if (name.length < 2 || name.length > 20) {
+        alert('직원 이름은 2자 이상 20자 이하로 입력해주세요.');
+        return;
+    }
+    
+    // 특수문자 검증 (한글, 영문, 공백만 허용)
+    if (!/^[가-힣a-zA-Z\s]+$/.test(name)) {
+        alert('직원 이름은 한글, 영문, 공백만 사용할 수 있습니다.');
+        return;
+    }
+    
+    // 입사일 유효성 검증
+    const joinDateObj = new Date(joinDate);
+    const today = new Date();
+    if (joinDateObj > today) {
+        alert('입사일은 오늘 날짜보다 이후일 수 없습니다.');
+        return;
+    }
+    
+    // 중복 이름 검증
+    if (employees.some(emp => emp.name === name)) {
+        alert('이미 등록된 직원 이름입니다. 다른 이름을 입력해주세요.');
         return;
     }
     
@@ -715,6 +759,7 @@ function registerLeave() {
     const leaveDuration = document.getElementById('modalDuration').value;
     const reason = document.getElementById('modalReason').value.trim();
     
+    // 입력 검증 강화
     if (selectedDates.length === 0) {
         alert('날짜를 선택해주세요.');
         return;
@@ -725,6 +770,27 @@ function registerLeave() {
         return;
     }
     
+    // 휴가 사유 검증
+    if (reason && reason.length > 50) {
+        alert('휴가 사유는 50자 이하로 입력해주세요.');
+        return;
+    }
+    
+    // 과거 날짜 검증 (오늘 이전 날짜는 등록 불가)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const hasOldDates = selectedDates.some(dateStr => {
+        const selectedDate = new Date(dateStr);
+        selectedDate.setHours(0, 0, 0, 0);
+        return selectedDate < today;
+    });
+    
+    if (hasOldDates) {
+        alert('과거 날짜에는 휴가를 등록할 수 없습니다.');
+        return;
+    }
+    
     const employee = employees.find(emp => emp.id === employeeId);
     if (!employee) {
         alert('직원을 찾을 수 없습니다.');
@@ -732,9 +798,9 @@ function registerLeave() {
     }
     
     // 1년 미만 직원은 월차만, 1년 이상 직원은 연차만 사용 가능
-    const today = new Date();
+    const currentDate = new Date();
     const joinDate = new Date(employee.joinDate);
-    const yearsOfService = Math.floor((today - joinDate) / (1000 * 60 * 60 * 24 * 365));
+    const yearsOfService = Math.floor((currentDate - joinDate) / (1000 * 60 * 60 * 24 * 365));
     
     if (yearsOfService < 1 && leaveType === 'annual') {
         alert('1년 미만 직원은 연차를 사용할 수 없습니다. 월차를 선택해주세요.');
@@ -1944,6 +2010,7 @@ async function initializeApp() {
     startRealTimeSync();
     subscribeRealtimeData(); // 다른 PC 변경 즉시 반영
     setupUIPermissions(); // UI 권한 설정
+    setDefaultDates(); // 날짜 기본값 설정
     
     // 매일 자정에 연차/월차 자동 계산
     setInterval(calculateLeaves, 60000);
@@ -2176,6 +2243,7 @@ async function logout() {
         sessionStorage.removeItem('userName');
         sessionStorage.removeItem('tokenExpiry');
         sessionStorage.removeItem('userExpiry');
+        sessionStorage.removeItem('hrAuthenticated'); // HR 인증 정보도 제거
         
         // localStorage에서 민감정보 제거
         localStorage.removeItem('accessToken');
@@ -2650,8 +2718,39 @@ async function migrateHRDataKeys(daysBack = 30) {
 
 // ===== HR 관리 기능 =====
 
+// HR 관리 비밀번호 (관리자 페이지와 동일)
+const HR_PASSWORD = 'admin2025!@#';
+
+// HR 접근 권한 확인
+function checkHRAccess() {
+    // 이미 인증된 경우
+    if (sessionStorage.getItem('hrAuthenticated') === 'true') {
+        return true;
+    }
+    
+    // 비밀번호 확인
+    const password = prompt('🔐 HR 관리는 민감한 개인정보를 다룹니다.\n비밀번호를 입력하세요:');
+    
+    if (password === HR_PASSWORD) {
+        sessionStorage.setItem('hrAuthenticated', 'true');
+        alert('✅ 인증되었습니다. HR 관리 기능을 사용할 수 있습니다.');
+        return true;
+    } else if (password !== null) {
+        alert('❌ 비밀번호가 올바르지 않습니다.');
+    }
+    
+    return false;
+}
+
 // 탭 전환 함수
 function showTab(tabName) {
+    // HR 탭 접근 시 비밀번호 확인
+    if (tabName === 'hr') {
+        if (!checkHRAccess()) {
+            return; // 인증 실패 시 탭 전환 중단
+        }
+    }
+    
     // 모든 탭 버튼 비활성화
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.classList.remove('active');
@@ -3010,6 +3109,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (ssnInput) {
         ssnInput.addEventListener('input', function(e) {
             let value = e.target.value.replace(/[^0-9]/g, '');
+            if (value.length > 13) {
+                value = value.substring(0, 13); // 최대 13자리까지만
+            }
             if (value.length >= 6) {
                 value = value.substring(0, 6) + '-' + value.substring(6, 13);
             }
@@ -3022,6 +3124,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (phoneInput) {
         phoneInput.addEventListener('input', function(e) {
             let value = e.target.value.replace(/[^0-9]/g, '');
+            if (value.length > 11) {
+                value = value.substring(0, 11); // 최대 11자리까지만
+            }
             if (value.length >= 3) {
                 if (value.length <= 7) {
                     value = value.substring(0, 3) + '-' + value.substring(3);
@@ -3076,14 +3181,32 @@ async function addOvertimeRecord() {
     const endTime = document.getElementById('overtimeEndTime').value;
     const reason = document.getElementById('overtimeReason').value.trim();
 
+    // 입력 검증 강화
     if (!date || !employeeId || !startTime || !endTime) {
         alert('필수 항목을 모두 입력해주세요.');
+        return;
+    }
+
+    // 날짜 유효성 검증
+    const overtimeDate = new Date(date);
+    const today = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(today.getDate() + 7); // 일주일 후까지만 허용
+    
+    if (overtimeDate > maxDate) {
+        alert('야근 날짜는 일주일 후까지만 등록 가능합니다.');
         return;
     }
 
     const employee = employees.find(emp => emp.id === employeeId);
     if (!employee) {
         alert('직원을 찾을 수 없습니다.');
+        return;
+    }
+
+    // 야근 사유 길이 검증
+    if (reason.length > 100) {
+        alert('야근 사유는 100자 이하로 입력해주세요.');
         return;
     }
 
@@ -3100,6 +3223,21 @@ async function addOvertimeRecord() {
 
     if (hours <= 0) {
         alert('종료 시간은 시작 시간보다 늦어야 합니다.');
+        return;
+    }
+
+    // 야근 시간 제한 검증 (최대 12시간)
+    if (hours > 12) {
+        alert('야근 시간은 최대 12시간까지만 등록 가능합니다.');
+        return;
+    }
+
+    // 중복 야근 기록 검증
+    const existingRecord = overtimeRecords.find(record => 
+        record.employeeId === employeeId && record.date === date
+    );
+    if (existingRecord) {
+        alert('해당 날짜에 이미 야근 기록이 존재합니다.');
         return;
     }
 
