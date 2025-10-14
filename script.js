@@ -2721,9 +2721,18 @@ async function migrateHRDataKeys(daysBack = 30) {
 // HR 관리 비밀번호 (관리자 페이지와 동일)
 const HR_PASSWORD = 'admin2025!@#';
 
+// HR 인증 체크 중복 방지 플래그
+let isCheckingHRAccess = false;
+
 // HR 접근 권한 확인
 function checkHRAccess() {
     console.log('🔐 HR 접근 권한 확인 중...');
+    
+    // 이미 체크 중이면 대기
+    if (isCheckingHRAccess) {
+        console.log('⏳ 이미 인증 체크 진행 중 - 중복 호출 무시');
+        return false;
+    }
     
     // 이미 인증된 경우
     const isAuthenticated = sessionStorage.getItem('hrAuthenticated');
@@ -2734,23 +2743,31 @@ function checkHRAccess() {
         return true;
     }
     
-    // 비밀번호 확인
-    console.log('🔑 비밀번호 입력 요청');
-    const password = prompt('🔐 HR 관리는 민감한 개인정보를 다룹니다.\n비밀번호를 입력하세요:');
+    // 중복 호출 방지 플래그 설정
+    isCheckingHRAccess = true;
     
-    if (password === HR_PASSWORD) {
-        sessionStorage.setItem('hrAuthenticated', 'true');
-        console.log('✅ 비밀번호 인증 성공');
-        alert('✅ 인증되었습니다. HR 관리 기능을 사용할 수 있습니다.');
-        return true;
-    } else if (password !== null) {
-        console.log('❌ 비밀번호 인증 실패');
-        alert('❌ 비밀번호가 올바르지 않습니다.');
-    } else {
-        console.log('⚠️ 비밀번호 입력 취소');
+    try {
+        // 비밀번호 확인
+        console.log('🔑 비밀번호 입력 요청');
+        const password = prompt('🔐 HR 관리는 민감한 개인정보를 다룹니다.\n비밀번호를 입력하세요:');
+        
+        if (password === HR_PASSWORD) {
+            sessionStorage.setItem('hrAuthenticated', 'true');
+            console.log('✅ 비밀번호 인증 성공');
+            alert('✅ 인증되었습니다. HR 관리 기능을 사용할 수 있습니다.');
+            return true;
+        } else if (password !== null) {
+            console.log('❌ 비밀번호 인증 실패');
+            alert('❌ 비밀번호가 올바르지 않습니다.');
+        } else {
+            console.log('⚠️ 비밀번호 입력 취소');
+        }
+        
+        return false;
+    } finally {
+        // 플래그 해제
+        isCheckingHRAccess = false;
     }
-    
-    return false;
 }
 
 // 탭 전환 함수
