@@ -2723,20 +2723,31 @@ const HR_PASSWORD = 'admin2025!@#';
 
 // HR 접근 권한 확인
 function checkHRAccess() {
+    console.log('🔐 HR 접근 권한 확인 중...');
+    
     // 이미 인증된 경우
-    if (sessionStorage.getItem('hrAuthenticated') === 'true') {
+    const isAuthenticated = sessionStorage.getItem('hrAuthenticated');
+    console.log('현재 인증 상태:', isAuthenticated);
+    
+    if (isAuthenticated === 'true') {
+        console.log('✅ 이미 인증됨 - 비밀번호 입력 생략');
         return true;
     }
     
     // 비밀번호 확인
+    console.log('🔑 비밀번호 입력 요청');
     const password = prompt('🔐 HR 관리는 민감한 개인정보를 다룹니다.\n비밀번호를 입력하세요:');
     
     if (password === HR_PASSWORD) {
         sessionStorage.setItem('hrAuthenticated', 'true');
+        console.log('✅ 비밀번호 인증 성공');
         alert('✅ 인증되었습니다. HR 관리 기능을 사용할 수 있습니다.');
         return true;
     } else if (password !== null) {
+        console.log('❌ 비밀번호 인증 실패');
         alert('❌ 비밀번호가 올바르지 않습니다.');
+    } else {
+        console.log('⚠️ 비밀번호 입력 취소');
     }
     
     return false;
