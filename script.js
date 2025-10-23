@@ -384,6 +384,10 @@ async function deleteEmployee(id) {
     }
     
     if (confirm('정말로 이 직원을 삭제하시겠습니까?')) {
+        // 로컬 배열에서 먼저 삭제
+        employees = employees.filter(emp => emp.id !== id);
+        leaveRecords = leaveRecords.filter(record => record.employeeId !== id);
+        
         // Firebase에서 직원 삭제
         if (isFirebaseEnabled) {
             try {
@@ -400,11 +404,21 @@ async function deleteEmployee(id) {
             await deleteLeaveRecord(record.id);
         }
         
-        // 로컬 배열에서 삭제
-        employees = employees.filter(emp => emp.id !== id);
-        leaveRecords = leaveRecords.filter(record => record.employeeId !== id);
+        // 로컬 스토리지만 업데이트 (Firebase에 다시 저장하지 않음)
+        const sanitizedEmployees = employees.map(emp => ({
+            ...emp,
+            hrData: emp.hrData ? {
+                ...emp.hrData,
+                phone: emp.hrData.phone ? '***숨김***' : '',
+                ssn: emp.hrData.ssn ? '***숨김***' : '',
+                address: emp.hrData.address ? '***숨김***' : ''
+            } : undefined
+        }));
+        localStorage.setItem('employees', JSON.stringify(sanitizedEmployees));
+        localStorage.setItem('leaveRecords', JSON.stringify(leaveRecords));
+        localStorage.setItem('lastUpdate', Date.now().toString());
         
-        saveData();
+        // UI 업데이트
         renderEmployeeSummary();
         updateModalEmployeeDropdown();
         renderCalendar();
@@ -3027,6 +3041,10 @@ async function deleteEmployeeHRData() {
     }
     
     if (confirm(`정말로 ${employee.name} 직원을 삭제하시겠습니까?\n\n⚠️ 주의: 해당 직원의 모든 휴가 기록도 함께 삭제됩니다.`)) {
+        // 로컬 배열에서 먼저 삭제
+        employees = employees.filter(emp => emp.id !== employeeId);
+        leaveRecords = leaveRecords.filter(record => record.employeeId !== employeeId);
+        
         // Firebase에서 직원 삭제
         if (isFirebaseEnabled) {
             try {
@@ -3043,13 +3061,19 @@ async function deleteEmployeeHRData() {
             await deleteLeaveRecord(record.id);
         }
         
-        // 로컬 배열에서 직원 삭제
-        employees = employees.filter(emp => emp.id !== employeeId);
-        
-        // 해당 직원의 휴가 기록도 삭제
-        leaveRecords = leaveRecords.filter(record => record.employeeId !== employeeId);
-        
-        saveData();
+        // 로컬 스토리지만 업데이트 (Firebase에 다시 저장하지 않음)
+        const sanitizedEmployees = employees.map(emp => ({
+            ...emp,
+            hrData: emp.hrData ? {
+                ...emp.hrData,
+                phone: emp.hrData.phone ? '***숨김***' : '',
+                ssn: emp.hrData.ssn ? '***숨김***' : '',
+                address: emp.hrData.address ? '***숨김***' : ''
+            } : undefined
+        }));
+        localStorage.setItem('employees', JSON.stringify(sanitizedEmployees));
+        localStorage.setItem('leaveRecords', JSON.stringify(leaveRecords));
+        localStorage.setItem('lastUpdate', Date.now().toString());
         
         // UI 업데이트
         clearHRForm();
