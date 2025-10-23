@@ -376,7 +376,7 @@ function calculateLeaves() {
 }
 
 // 직원 삭제
-function deleteEmployee(id) {
+async function deleteEmployee(id) {
     // 권한 체크: 관리자만 가능
     if (!checkPermission('admin')) {
         showNoPermissionAlert('직원 삭제');
@@ -384,8 +384,26 @@ function deleteEmployee(id) {
     }
     
     if (confirm('정말로 이 직원을 삭제하시겠습니까?')) {
+        // Firebase에서 직원 삭제
+        if (isFirebaseEnabled) {
+            try {
+                await database.ref(`employees/${id}`).remove();
+                console.log('Firebase에서 직원 삭제 완료:', id);
+            } catch (error) {
+                console.log('Firebase 직원 삭제 실패:', error);
+            }
+        }
+        
+        // 해당 직원의 휴가 기록들도 Firebase에서 삭제
+        const employeeLeaveRecords = leaveRecords.filter(record => record.employeeId === id);
+        for (const record of employeeLeaveRecords) {
+            await deleteLeaveRecord(record.id);
+        }
+        
+        // 로컬 배열에서 삭제
         employees = employees.filter(emp => emp.id !== id);
         leaveRecords = leaveRecords.filter(record => record.employeeId !== id);
+        
         saveData();
         renderEmployeeSummary();
         updateModalEmployeeDropdown();
@@ -3009,13 +3027,27 @@ async function deleteEmployeeHRData() {
     }
     
     if (confirm(`정말로 ${employee.name} 직원을 삭제하시겠습니까?\n\n⚠️ 주의: 해당 직원의 모든 휴가 기록도 함께 삭제됩니다.`)) {
-        // 직원 삭제
+        // Firebase에서 직원 삭제
+        if (isFirebaseEnabled) {
+            try {
+                await database.ref(`employees/${employeeId}`).remove();
+                console.log('Firebase에서 직원 삭제 완료:', employeeId);
+            } catch (error) {
+                console.log('Firebase 직원 삭제 실패:', error);
+            }
+        }
+        
+        // 해당 직원의 휴가 기록들도 Firebase에서 삭제
+        const employeeLeaveRecords = leaveRecords.filter(record => record.employeeId === employeeId);
+        for (const record of employeeLeaveRecords) {
+            await deleteLeaveRecord(record.id);
+        }
+        
+        // 로컬 배열에서 직원 삭제
         employees = employees.filter(emp => emp.id !== employeeId);
         
         // 해당 직원의 휴가 기록도 삭제
         leaveRecords = leaveRecords.filter(record => record.employeeId !== employeeId);
-        
-        // 로컬 저장소에서만 관리 (개인정보 보호)
         
         saveData();
         
