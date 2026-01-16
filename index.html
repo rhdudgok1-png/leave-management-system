@@ -13,6 +13,9 @@
     
     <!-- 토큰 목록 -->
     <script src="tokens.js"></script>
+    
+    <!-- SortableJS (드래그 앤 드롭) -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -39,7 +42,20 @@
             <div id="dashboardTab" class="tab-content active">
                 <!-- 직원 관리 섹션 -->
                 <section class="employee-section">
-                    <h2>직원 관리</h2>
+                    <div class="section-header">
+                        <h2>직원 관리</h2>
+                        <div class="edit-mode-controls" id="editModeControls">
+                            <button class="edit-mode-btn" id="editModeBtn" onclick="toggleEditMode()">
+                                <span class="icon">✏️</span> 순서 편집
+                            </button>
+                            <button class="edit-done-btn" id="editDoneBtn" onclick="saveEmployeeOrder()" style="display: none;">
+                                <span class="icon">✅</span> 완료
+                            </button>
+                            <button class="edit-cancel-btn" id="editCancelBtn" onclick="cancelEditMode()" style="display: none;">
+                                취소
+                            </button>
+                        </div>
+                    </div>
                     <div class="add-employee">
                         <input type="text" id="employeeName" placeholder="직원 이름" maxlength="20" required>
                         <input type="date" id="joinDate" placeholder="입사일" required>

@@ -6,6 +6,11 @@ let currentDate = new Date();
 let displayMonth = new Date();
 let overtimeDisplayMonth = new Date();
 
+// 편집 모드 관련 변수
+let isEditMode = false;
+let sortableInstance = null;
+let originalEmployeeOrder = [];
+
 // ===== 토스트 알림 시스템 =====
 function showToast(type, title, message, duration = 4000) {
     const container = document.getElementById('toastContainer');
@@ -55,6 +60,98 @@ function showWarningToast(message) {
 
 function showInfoToast(message) {
     showToast('info', '알림', message);
+}
+
+// ===== 직원 순서 편집 모드 =====
+function toggleEditMode() {
+    if (isEditMode) return;
+    
+    isEditMode = true;
+    originalEmployeeOrder = [...employees]; // 원본 순서 저장
+    
+    // UI 변경
+    document.getElementById('editModeBtn').style.display = 'none';
+    document.getElementById('editDoneBtn').style.display = 'inline-flex';
+    document.getElementById('editCancelBtn').style.display = 'inline-flex';
+    
+    // 직원 목록에 편집 모드 클래스 추가
+    const container = document.getElementById('employeeSummary');
+    container.classList.add('edit-mode');
+    
+    // SortableJS 초기화
+    if (typeof Sortable !== 'undefined') {
+        sortableInstance = new Sortable(container, {
+            animation: 300,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            handle: '.employee-card', // 카드 전체를 드래그 핸들로
+            onEnd: function(evt) {
+                // 배열 순서 변경
+                const movedItem = employees.splice(evt.oldIndex, 1)[0];
+                employees.splice(evt.newIndex, 0, movedItem);
+                console.log('직원 순서 변경:', employees.map(e => e.name));
+            }
+        });
+    } else {
+        alert('드래그 기능을 사용할 수 없습니다. 페이지를 새로고침해주세요.');
+        cancelEditMode();
+    }
+    
+    showInfoToast('드래그하여 직원 순서를 변경하세요');
+}
+
+async function saveEmployeeOrder() {
+    if (!isEditMode) return;
+    
+    // 순서 인덱스 저장
+    employees.forEach((emp, index) => {
+        emp.sortOrder = index;
+    });
+    
+    // Firebase에 저장
+    await saveData();
+    
+    // 편집 모드 종료
+    exitEditMode();
+    
+    // UI 업데이트
+    renderEmployeeSummary();
+    
+    showSuccessToast('직원 순서가 저장되었습니다');
+}
+
+function cancelEditMode() {
+    if (!isEditMode) return;
+    
+    // 원본 순서 복원
+    employees = [...originalEmployeeOrder];
+    
+    // 편집 모드 종료
+    exitEditMode();
+    
+    // UI 업데이트
+    renderEmployeeSummary();
+    
+    showInfoToast('순서 변경이 취소되었습니다');
+}
+
+function exitEditMode() {
+    isEditMode = false;
+    
+    // SortableJS 해제
+    if (sortableInstance) {
+        sortableInstance.destroy();
+        sortableInstance = null;
+    }
+    
+    // UI 복원
+    document.getElementById('editModeBtn').style.display = 'inline-flex';
+    document.getElementById('editDoneBtn').style.display = 'none';
+    document.getElementById('editCancelBtn').style.display = 'none';
+    
+    const container = document.getElementById('employeeSummary');
+    container.classList.remove('edit-mode');
 }
 
 // ===== 다크모드 시스템 =====
@@ -1237,6 +1334,12 @@ async function loadData() {
                 employees = uniqueEmployees;
                 if (Array.isArray(employees)) {
                     employees.forEach(emp => calculateEmployeeLeaves(emp));
+                    // sortOrder로 정렬 (저장된 순서 유지)
+                    employees.sort((a, b) => {
+                        const orderA = a.sortOrder !== undefined ? a.sortOrder : 999;
+                        const orderB = b.sortOrder !== undefined ? b.sortOrder : 999;
+                        return orderA - orderB;
+                    });
                     console.log('Firebase에서 보안 인증된 상태로 직원 데이터 로드:', employees.length + '명');
                 }
             }
