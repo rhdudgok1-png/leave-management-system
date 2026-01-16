@@ -1418,7 +1418,9 @@ function showLeaveCancelModal(leaveId) {
     
     // 취소할 휴가 ID를 모달에 저장
     modal.dataset.leaveId = leaveId;
-    modal.style.display = 'block';
+    // 강력한 모달 열기
+    modal.style.cssText = 'display: block !important; z-index: 10000 !important;';
+    console.log('휴가 취소 모달 열림:', leaveId);
 }
 
 // 휴가 취소 모달 닫기
@@ -1488,7 +1490,8 @@ function openLeaveEditModal() {
 
     // 수정할 휴가 ID를 모달에 저장
     editModal.dataset.leaveId = leaveId;
-    editModal.style.display = 'block';
+    // 강력한 모달 열기
+    editModal.style.cssText = 'display: block !important; z-index: 10000 !important;';
 }
 
 // 휴가 수정 모달 닫기
