@@ -2968,14 +2968,6 @@ function showTab(tabName) {
         updateHREmployeeDropdown();
         renderHREmployeeList();
     }
-    
-    // 탭 콘텐츠로 부드럽게 스크롤
-    setTimeout(() => {
-        const mainContent = document.querySelector('.main-content');
-        if (mainContent) {
-            mainContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }, 100);
 }
 
 // HR 직원 드롭다운 업데이트
