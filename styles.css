@@ -1310,38 +1310,27 @@ h1 {
     }
 }
 
-/* ===== 모달 애니메이션 ===== */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0);
-    transition: background-color 0.3s ease;
-}
-
-.modal.show {
-    background-color: rgba(0, 0, 0, 0.5);
-}
+/* ===== 모달 애니메이션 (기존 .modal 스타일 유지) =====
+   주의: .modal 기본 스타일은 414번 줄에 정의됨
+   여기서는 애니메이션만 추가 */
 
 .modal-content {
-    background-color: var(--bg-card);
-    margin: 10% auto;
-    padding: 30px;
-    border-radius: 20px;
-    width: 90%;
-    max-width: 500px;
-    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
-    position: relative;
-    transform: translateY(-50px);
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: modalSlideIn 0.3s ease;
 }
 
-.modal.show .modal-content {
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 추가 모달 스타일 */
+.modal .modal-content.enhanced {
     transform: translateY(0);
     opacity: 1;
 }
