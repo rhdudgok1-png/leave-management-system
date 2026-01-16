@@ -1184,8 +1184,13 @@ function updateStats() {
 async function saveEmployee(employee) {
     if (isFirebaseEnabled) {
         try {
-            await database.ref(`employees/${employee.id}`).set(employee);
-            console.log('Firebase에 직원 저장 완료:', employee.name);
+            // sortOrder 포함하여 저장
+            const employeeData = {
+                ...employee,
+                sortOrder: employee.sortOrder !== undefined ? employee.sortOrder : 999
+            };
+            await database.ref(`employees/${employee.id}`).set(employeeData);
+            console.log('Firebase에 직원 저장 완료:', employee.name, 'sortOrder:', employeeData.sortOrder);
         } catch (error) {
             console.log('Firebase 직원 저장 실패:', error);
         }
@@ -1335,11 +1340,13 @@ async function loadData() {
                 if (Array.isArray(employees)) {
                     employees.forEach(emp => calculateEmployeeLeaves(emp));
                     // sortOrder로 정렬 (저장된 순서 유지)
+                    console.log('정렬 전 직원 순서:', employees.map(e => `${e.name}(${e.sortOrder})`));
                     employees.sort((a, b) => {
                         const orderA = a.sortOrder !== undefined ? a.sortOrder : 999;
                         const orderB = b.sortOrder !== undefined ? b.sortOrder : 999;
                         return orderA - orderB;
                     });
+                    console.log('정렬 후 직원 순서:', employees.map(e => `${e.name}(${e.sortOrder})`));
                     console.log('Firebase에서 보안 인증된 상태로 직원 데이터 로드:', employees.length + '명');
                 }
             }
