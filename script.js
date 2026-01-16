@@ -2822,12 +2822,12 @@ function checkHRAccess() {
 
 // 탭 전환 함수
 function showTab(tabName) {
-    // HR 탭 접근 시 비밀번호 확인
-    if (tabName === 'hr') {
-        if (!checkHRAccess()) {
-            return; // 인증 실패 시 탭 전환 중단
-        }
-    }
+    // HR 탭 접근 시 비밀번호 확인 - 비활성화
+    // if (tabName === 'hr') {
+    //     if (!checkHRAccess()) {
+    //         return; // 인증 실패 시 탭 전환 중단
+    //     }
+    // }
     
     // 모든 탭 버튼 비활성화
     document.querySelectorAll('.tab-button').forEach(btn => {
