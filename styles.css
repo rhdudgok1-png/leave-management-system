@@ -1380,6 +1380,7 @@ h1 {
     border: 2px solid #f59e0b;
     border-radius: inherit;
     animation: pulse-border 2s infinite;
+    pointer-events: none; /* 클릭 이벤트 통과 */
 }
 
 @keyframes pulse-border {
