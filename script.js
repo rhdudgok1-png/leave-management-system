@@ -443,20 +443,26 @@ function renderEmployeeSummary() {
         let leaveDisplay = '';
         if (years < 1) {
             // 1년 미만 - 월차만
+            const remainingMonthly = employee.monthlyLeave - employee.usedMonthly;
+            const monthlyStyle = remainingMonthly < 0 ? 'background:#ffcccc; color:#cc0000;' : '';
+            const monthlyLabel = remainingMonthly < 0 ? `월차: ${remainingMonthly.toFixed(1)} (선차감)` : `월차: ${remainingMonthly.toFixed(1)}`;
+            
             leaveDisplay = `
                 <div class="leave-summary">
-                    <div class="leave-item monthly">월차: ${(employee.monthlyLeave - employee.usedMonthly).toFixed(1)}</div>
+                    <div class="leave-item monthly" style="${monthlyStyle}">${monthlyLabel}</div>
                     <div class="leave-item" style="background:#f8f9fa; color:#666;">연차: 없음</div>
                 </div>
             `;
         } else {
             // 1년 이상 - 연차만
             const remainingAnnual = (employee.annualLeave || 15) - (employee.usedAnnual || 0);
+            const annualStyle = remainingAnnual < 0 ? 'background:#ffcccc; color:#cc0000;' : '';
+            const annualLabel = remainingAnnual < 0 ? `연차: ${remainingAnnual.toFixed(1)} (선차감)` : `연차: ${remainingAnnual.toFixed(1)}`;
             console.log(`${employee.name} 연차 계산: 총 ${employee.annualLeave}, 사용 ${employee.usedAnnual}, 잔여 ${remainingAnnual}`);
             
             leaveDisplay = `
                 <div class="leave-summary">
-                    <div class="leave-item annual">연차: ${remainingAnnual.toFixed(1)}</div>
+                    <div class="leave-item annual" style="${annualStyle}">${annualLabel}</div>
                     <div class="leave-item" style="background:#f8f9fa; color:#666;">월차: 없음</div>
                 </div>
             `;
@@ -808,7 +814,7 @@ function registerLeave() {
         return;
     }
     
-    // 과거 날짜 검증 (오늘 이전 날짜는 등록 불가)
+    // 과거 날짜 검증 (관리자/매니저는 과거 날짜 등록 가능)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -819,8 +825,10 @@ function registerLeave() {
     });
     
     if (hasOldDates) {
-        alert('과거 날짜에는 휴가를 등록할 수 없습니다.');
-        return;
+        // 관리자/매니저는 과거 날짜 등록 가능 (확인 메시지)
+        if (!confirm('⚠️ 과거 날짜를 선택하셨습니다.\n\n깜빡하고 체크 못한 연차를 추가하시겠습니까?')) {
+            return;
+        }
     }
     
     const employee = employees.find(emp => emp.id === employeeId);
@@ -851,17 +859,23 @@ function registerLeave() {
         days = days * 0.5; // 반차
     }
     
-    // 잔여 휴가 확인
+    // 잔여 휴가 확인 (선차감 가능)
     if (leaveType === 'annual') {
-        if (employee.annualLeave - employee.usedAnnual < days) {
-            alert('연차가 부족합니다.');
-            return;
+        const remainingAnnual = employee.annualLeave - employee.usedAnnual;
+        if (remainingAnnual < days) {
+            const shortage = days - remainingAnnual;
+            if (!confirm(`⚠️ 연차가 부족합니다!\n\n현재 잔여 연차: ${remainingAnnual.toFixed(1)}일\n사용하려는 일수: ${days}일\n부족한 일수: ${shortage.toFixed(1)}일\n\n선차감으로 처리하시겠습니까?\n(아직 생성되지 않은 연차를 미리 사용합니다)`)) {
+                return;
+            }
         }
         employee.usedAnnual += days;
     } else {
-        if (employee.monthlyLeave - employee.usedMonthly < days) {
-            alert('월차가 부족합니다.');
-            return;
+        const remainingMonthly = employee.monthlyLeave - employee.usedMonthly;
+        if (remainingMonthly < days) {
+            const shortage = days - remainingMonthly;
+            if (!confirm(`⚠️ 월차가 부족합니다!\n\n현재 잔여 월차: ${remainingMonthly.toFixed(1)}일\n사용하려는 일수: ${days}일\n부족한 일수: ${shortage.toFixed(1)}일\n\n선차감으로 처리하시겠습니까?\n(아직 생성되지 않은 월차를 미리 사용합니다)`)) {
+                return;
+            }
         }
         employee.usedMonthly += days;
     }
@@ -1199,13 +1213,17 @@ function showEmployeeDetail(employeeId) {
     
     let leaveInfo = '';
     if (years < 1) {
+        const remainingMonthly = employee.monthlyLeave - employee.usedMonthly;
+        const monthlyWarning = remainingMonthly < 0 ? ' <span style="color:#cc0000; font-weight:bold;">(선차감)</span>' : '';
         leaveInfo = `
-            <p><strong>월차:</strong> ${employee.monthlyLeave}개 (사용: ${employee.usedMonthly}개, 잔여: ${employee.monthlyLeave - employee.usedMonthly}개)</p>
+            <p><strong>월차:</strong> ${employee.monthlyLeave}개 (사용: ${employee.usedMonthly}개, 잔여: ${remainingMonthly}개)${monthlyWarning}</p>
             <p><strong>연차:</strong> 1년 미만으로 연차 없음</p>
         `;
     } else {
+        const remainingAnnual = employee.annualLeave - employee.usedAnnual;
+        const annualWarning = remainingAnnual < 0 ? ' <span style="color:#cc0000; font-weight:bold;">(선차감)</span>' : '';
         leaveInfo = `
-            <p><strong>연차:</strong> ${employee.annualLeave}개 (사용: ${employee.usedAnnual}개, 잔여: ${employee.annualLeave - employee.usedAnnual}개)</p>
+            <p><strong>연차:</strong> ${employee.annualLeave}개 (사용: ${employee.usedAnnual}개, 잔여: ${remainingAnnual}개)${annualWarning}</p>
             <p><strong>월차:</strong> 1년 이상으로 월차 없음</p>
         `;
     }
