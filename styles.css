@@ -867,14 +867,17 @@ h1 {
 }
 
 /* 탭 콘텐츠: 기본적으로 숨김 */
-#dashboardTab,
-#overtimeTab,
-#hrTab {
+#dashboardTab:not(.active),
+#overtimeTab:not(.active),
+#hrTab:not(.active) {
     display: none !important;
 }
 
-/* 활성화된 탭만 표시 */
-#dashboardTab.active,
+/* 활성화된 탭만 표시 - dashboardTab은 grid 유지 */
+#dashboardTab.active {
+    display: grid !important;
+}
+
 #overtimeTab.active,
 #hrTab.active {
     display: block !important;
