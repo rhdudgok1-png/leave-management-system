@@ -6,6 +6,86 @@ let currentDate = new Date();
 let displayMonth = new Date();
 let overtimeDisplayMonth = new Date();
 
+// ===== 토스트 알림 시스템 =====
+function showToast(type, title, message, duration = 4000) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    
+    const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <div class="toast-content">
+            <div class="toast-title">${title}</div>
+            <div class="toast-message">${message}</div>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.classList.add('hide'); setTimeout(() => this.parentElement.remove(), 300);">×</button>
+    `;
+    
+    container.appendChild(toast);
+    
+    // 자동 제거
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, duration);
+}
+
+// 기존 alert 대체 함수
+function showSuccessToast(message) {
+    showToast('success', '성공', message);
+}
+
+function showErrorToast(message) {
+    showToast('error', '오류', message);
+}
+
+function showWarningToast(message) {
+    showToast('warning', '주의', message);
+}
+
+function showInfoToast(message) {
+    showToast('info', '알림', message);
+}
+
+// ===== 다크모드 시스템 =====
+function toggleDarkMode() {
+    const html = document.documentElement;
+    const currentTheme = html.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    html.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    
+    // 아이콘 변경
+    const themeIcon = document.getElementById('themeIcon');
+    if (themeIcon) {
+        themeIcon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+    }
+    
+    showToast('info', '테마 변경', newTheme === 'dark' ? '다크모드가 활성화되었습니다.' : '라이트모드가 활성화되었습니다.', 2000);
+}
+
+// 저장된 테마 불러오기
+function loadSavedTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    
+    const themeIcon = document.getElementById('themeIcon');
+    if (themeIcon) {
+        themeIcon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+    }
+}
+
 // 달력 선택 관련 변수
 let selectedDates = [];
 let isSelecting = false;
@@ -444,26 +524,39 @@ function renderEmployeeSummary() {
         if (years < 1) {
             // 1년 미만 - 월차만
             const remainingMonthly = employee.monthlyLeave - employee.usedMonthly;
-            const monthlyStyle = remainingMonthly < 0 ? 'background:#ffcccc; color:#cc0000;' : '';
-            const monthlyLabel = remainingMonthly < 0 ? `월차: ${remainingMonthly.toFixed(1)} (선차감)` : `월차: ${remainingMonthly.toFixed(1)}`;
+            const usedMonthly = employee.usedMonthly || 0;
+            const totalMonthly = employee.monthlyLeave || 0;
+            const percentUsed = totalMonthly > 0 ? Math.min((usedMonthly / totalMonthly) * 100, 100) : 0;
+            const progressClass = remainingMonthly < 0 ? 'danger' : (percentUsed > 80 ? 'warning' : 'monthly');
             
             leaveDisplay = `
-                <div class="leave-summary">
-                    <div class="leave-item monthly" style="${monthlyStyle}">${monthlyLabel}</div>
-                    <div class="leave-item" style="background:#f8f9fa; color:#666;">연차: 없음</div>
+                <div class="leave-progress-container">
+                    <div class="leave-progress-label">
+                        <span>월차</span>
+                        <span>${usedMonthly.toFixed(1)} / ${totalMonthly}일 사용${remainingMonthly < 0 ? ' (선차감)' : ''}</span>
+                    </div>
+                    <div class="leave-progress-bar">
+                        <div class="leave-progress-fill ${progressClass}" style="width: ${Math.min(percentUsed, 100)}%"></div>
+                    </div>
                 </div>
             `;
         } else {
             // 1년 이상 - 연차만
             const remainingAnnual = (employee.annualLeave || 15) - (employee.usedAnnual || 0);
-            const annualStyle = remainingAnnual < 0 ? 'background:#ffcccc; color:#cc0000;' : '';
-            const annualLabel = remainingAnnual < 0 ? `연차: ${remainingAnnual.toFixed(1)} (선차감)` : `연차: ${remainingAnnual.toFixed(1)}`;
-            console.log(`${employee.name} 연차 계산: 총 ${employee.annualLeave}, 사용 ${employee.usedAnnual}, 잔여 ${remainingAnnual}`);
+            const usedAnnual = employee.usedAnnual || 0;
+            const totalAnnual = employee.annualLeave || 15;
+            const percentUsed = totalAnnual > 0 ? Math.min((usedAnnual / totalAnnual) * 100, 100) : 0;
+            const progressClass = remainingAnnual < 0 ? 'danger' : (percentUsed > 80 ? 'warning' : 'annual');
             
             leaveDisplay = `
-                <div class="leave-summary">
-                    <div class="leave-item annual" style="${annualStyle}">${annualLabel}</div>
-                    <div class="leave-item" style="background:#f8f9fa; color:#666;">월차: 없음</div>
+                <div class="leave-progress-container">
+                    <div class="leave-progress-label">
+                        <span>연차</span>
+                        <span>${usedAnnual.toFixed(1)} / ${totalAnnual}일 사용${remainingAnnual < 0 ? ' (선차감)' : ''}</span>
+                    </div>
+                    <div class="leave-progress-bar">
+                        <div class="leave-progress-fill ${progressClass}" style="width: ${Math.min(percentUsed, 100)}%"></div>
+                    </div>
                 </div>
             `;
         }
@@ -902,7 +995,7 @@ function registerLeave() {
     renderEmployeeSummary();
     renderCalendar();
     
-    alert('휴가가 등록되었습니다.');
+    showToast('success', '휴가 등록 완료', '휴가가 성공적으로 등록되었습니다.');
     closeLeaveModal();
 }
 
@@ -2043,6 +2136,9 @@ async function cleanupFirebaseData() {
 async function initializeApp() {
     console.log('앱 초기화 시작...');
     
+    // 저장된 테마 불러오기
+    loadSavedTheme();
+    
     await loadData(); // Firebase에서 데이터 로드
     
     // 한 번만 데이터 정리 실행 (관리자만)
@@ -3102,7 +3198,7 @@ async function deleteEmployeeHRData() {
         renderHREmployeeList();
         renderCalendar();
         
-        alert('직원이 삭제되었습니다.');
+        showToast('success', '직원 삭제', '직원이 삭제되었습니다.');
     }
 }
 
@@ -3384,7 +3480,7 @@ async function addOvertimeRecord() {
     renderOvertimeList();
     renderOvertimeSummary();
 
-    alert('야근 기록이 추가되었습니다.');
+    showToast('success', '야근 기록', '야근 기록이 추가되었습니다.');
 }
 
 // 야근 달력 렌더링
@@ -3692,7 +3788,7 @@ async function deleteOvertimeRecord(id) {
     renderOvertimeList();
     renderOvertimeSummary();
 
-    alert('야근 기록이 삭제되었습니다.');
+    showToast('success', '야근 기록', '야근 기록이 삭제되었습니다.');
 }
 
 // 야근 기록 수정
