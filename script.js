@@ -857,7 +857,9 @@ function openLeaveModal() {
         selectedDatesSpan.textContent = `${selectedDates[0]} ~ ${selectedDates[selectedDates.length - 1]} (${selectedDates.length}일)`;
     }
     
-    modal.style.display = 'block';
+    // 강력한 모달 열기
+    modal.style.cssText = 'display: block !important; z-index: 10000 !important;';
+    console.log('모달 열림 확인:', getComputedStyle(modal).display);
 }
 
 // 모달 닫기
@@ -1359,7 +1361,8 @@ function showEmployeeDetail(employeeId) {
     }
     
     history.innerHTML = historyHTML;
-    modal.style.display = 'block';
+    // 강력한 모달 열기
+    modal.style.cssText = 'display: block !important; z-index: 10000 !important;';
 }
 
 // 직원 상세 모달 닫기
