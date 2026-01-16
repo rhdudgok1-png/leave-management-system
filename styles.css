@@ -879,12 +879,18 @@ h1 {
     background: white;
 }
 
-.tab-content {
-    display: none;
+/* 탭 콘텐츠: 기본적으로 숨김 */
+#dashboardTab,
+#overtimeTab,
+#hrTab {
+    display: none !important;
 }
 
-.tab-content.active {
-    display: block;
+/* 활성화된 탭만 표시 */
+#dashboardTab.active,
+#overtimeTab.active,
+#hrTab.active {
+    display: block !important;
 }
 
 /* ===== HR 관리 스타일 ===== */
@@ -1299,13 +1305,8 @@ h1 {
 }
 
 /* ===== 페이지 전환 애니메이션 ===== */
-.tab-content {
-    display: none;
-    animation: fadeIn 0.3s ease;
-}
-
 .tab-content.active {
-    display: block;
+    animation: fadeIn 0.3s ease;
 }
 
 @keyframes fadeIn {
