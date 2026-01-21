@@ -431,6 +431,9 @@ async function addEmployee() {
         return;
     }
     
+    // 새 직원의 sortOrder는 현재 직원 수로 설정 (맨 마지막에 추가)
+    const newSortOrder = employees.length;
+    
     const employee = {
         id: Date.now(),
         name: name,
@@ -439,7 +442,8 @@ async function addEmployee() {
         monthlyLeave: 0, // 월차
         usedAnnual: 0,
         usedMonthly: 0,
-        lastMonthlyUpdate: joinDate // 마지막 월차 업데이트 날짜
+        lastMonthlyUpdate: joinDate, // 마지막 월차 업데이트 날짜
+        sortOrder: newSortOrder // 순서 저장
     };
     
     // 초기 연차/월차 계산
@@ -2157,11 +2161,18 @@ function subscribeRealtimeData() {
                 
                 // 배열인지 확인 후 처리
                 if (Array.isArray(employees) && employees.length > 0) {
+                    // sortOrder로 정렬 (저장된 순서 유지)
+                    employees.sort((a, b) => {
+                        const orderA = a.sortOrder !== undefined ? a.sortOrder : 999;
+                        const orderB = b.sortOrder !== undefined ? b.sortOrder : 999;
+                        return orderA - orderB;
+                    });
+                    
                     employees.forEach(emp => calculateEmployeeLeaves(emp));
                     renderEmployeeSummary();
                     updateModalEmployeeDropdown();
                     renderCalendar();
-                    console.log('🔥 직원 데이터 실시간 업데이트 (중복 방지)');
+                    console.log('🔥 직원 데이터 실시간 업데이트 (중복 방지, sortOrder 적용)');
                 }
             } catch (error) {
                 console.log('직원 데이터 실시간 업데이트 실패:', error);
@@ -3207,6 +3218,8 @@ async function saveEmployeeHRData() {
         
     } else {
         // 새 직원 추가
+        const newSortOrder = employees.length;
+        
         employee = {
             id: Date.now(),
             name: name,
@@ -3215,7 +3228,8 @@ async function saveEmployeeHRData() {
             monthlyLeave: 0,
             usedAnnual: 0,
             usedMonthly: 0,
-            lastMonthlyUpdate: joinDate
+            lastMonthlyUpdate: joinDate,
+            sortOrder: newSortOrder // 순서 저장
         };
         
         // 초기 연차/월차 계산
