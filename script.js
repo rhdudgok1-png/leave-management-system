@@ -3433,7 +3433,7 @@ async function saveEmployeeHRData() {
         return;
     }
     
-    const employeeId = parseInt(document.getElementById('hrEmployeeSelect').value);
+    let employeeId = parseInt(document.getElementById('hrEmployeeSelect').value);
     const name = document.getElementById('hrEmployeeName').value.trim();
     const joinDate = document.getElementById('hrJoinDate').value;
     const leaveDate = document.getElementById('hrLeaveDate').value;
@@ -3445,6 +3445,15 @@ async function saveEmployeeHRData() {
     const notes = document.getElementById('hrNotes').value.trim();
     const slackId = document.getElementById('hrSlackId').value.trim();
     const slackNotify = document.getElementById('hrSlackNotify').value === 'true';
+    
+    // 버그 방지: 드롭다운이 초기화되어도 이름으로 기존 직원 찾기
+    if (!employeeId || isNaN(employeeId)) {
+        const existingEmployee = employees.find(emp => emp.name === name);
+        if (existingEmployee) {
+            employeeId = existingEmployee.id;
+            console.log('⚠️ 드롭다운 초기화 감지 - 이름으로 기존 직원 찾음:', name, employeeId);
+        }
+    }
     
     if (!name || !joinDate) {
         alert('이름과 입사일은 필수 항목입니다.');
