@@ -11,6 +11,159 @@ let isEditMode = false;
 let sortableInstance = null;
 let originalEmployeeOrder = [];
 
+// ===== Slack 알림 설정 =====
+const SLACK_CONFIG = {
+    enabled: false, // Slack 알림 활성화 여부
+    botToken: '', // Bot User OAuth Token (xoxb-로 시작)
+};
+
+// Slack 설정 로드
+function loadSlackConfig() {
+    const saved = localStorage.getItem('slackConfig');
+    if (saved) {
+        const config = JSON.parse(saved);
+        SLACK_CONFIG.enabled = config.enabled || false;
+        SLACK_CONFIG.botToken = config.botToken || '';
+    }
+}
+
+// Slack 설정 저장
+function saveSlackConfig() {
+    localStorage.setItem('slackConfig', JSON.stringify({
+        enabled: SLACK_CONFIG.enabled,
+        botToken: SLACK_CONFIG.botToken
+    }));
+}
+
+// Slack DM 발송 함수
+async function sendSlackDM(slackUserId, message) {
+    if (!SLACK_CONFIG.enabled || !SLACK_CONFIG.botToken || !slackUserId) {
+        console.log('Slack 알림 스킵: 설정 미완료 또는 Slack ID 없음');
+        return false;
+    }
+    
+    try {
+        // CORS 우회를 위해 no-cors 모드 사용 (응답 확인 불가)
+        // 실제 운영에서는 프록시 서버 권장
+        const response = await fetch('https://slack.com/api/chat.postMessage', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${SLACK_CONFIG.botToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                channel: slackUserId, // User ID로 DM 발송
+                text: message,
+                mrkdwn: true
+            })
+        });
+        
+        const result = await response.json();
+        if (result.ok) {
+            console.log('✅ Slack DM 발송 성공:', slackUserId);
+            return true;
+        } else {
+            console.error('❌ Slack DM 발송 실패:', result.error);
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Slack API 오류:', error);
+        return false;
+    }
+}
+
+// 휴가 사용 알림 메시지 생성
+function createLeaveNotificationMessage(employee, leaveType, days, remainingLeave) {
+    const typeText = leaveType === 'annual' ? '연차' : '월차';
+    const emoji = leaveType === 'annual' ? '🏖️' : '📅';
+    
+    return `${emoji} *휴가 사용 알림*\n\n` +
+           `안녕하세요, *${employee.name}*님!\n\n` +
+           `• 사용한 휴가: ${typeText} ${days}일\n` +
+           `• 잔여 ${typeText}: *${remainingLeave.toFixed(1)}일*\n\n` +
+           `좋은 휴식 되세요! 😊`;
+}
+
+// Slack 설정 UI 초기화
+function initSlackSettingsUI() {
+    const enabledSelect = document.getElementById('slackEnabled');
+    const tokenInput = document.getElementById('slackBotToken');
+    
+    if (enabledSelect && tokenInput) {
+        enabledSelect.value = SLACK_CONFIG.enabled ? 'true' : 'false';
+        tokenInput.value = SLACK_CONFIG.botToken || '';
+    }
+}
+
+// Slack 활성화 상태 업데이트
+function updateSlackEnabled() {
+    const enabled = document.getElementById('slackEnabled').value === 'true';
+    SLACK_CONFIG.enabled = enabled;
+}
+
+// Slack 설정 저장
+function saveSlackSettings() {
+    const token = document.getElementById('slackBotToken').value.trim();
+    const enabled = document.getElementById('slackEnabled').value === 'true';
+    
+    // 토큰 형식 검증
+    if (enabled && token && !token.startsWith('xoxb-')) {
+        alert('Bot Token은 xoxb-로 시작해야 합니다.');
+        return;
+    }
+    
+    SLACK_CONFIG.enabled = enabled;
+    SLACK_CONFIG.botToken = token;
+    saveSlackConfig();
+    
+    showToast('success', 'Slack 설정 저장', 'Slack 알림 설정이 저장되었습니다.');
+}
+
+// Slack 연결 테스트
+async function testSlackConnection() {
+    const resultDiv = document.getElementById('slackTestResult');
+    const token = document.getElementById('slackBotToken').value.trim();
+    
+    if (!token) {
+        resultDiv.style.display = 'block';
+        resultDiv.style.background = '#fff3cd';
+        resultDiv.style.color = '#856404';
+        resultDiv.innerHTML = '⚠️ Bot Token을 입력해주세요.';
+        return;
+    }
+    
+    resultDiv.style.display = 'block';
+    resultDiv.style.background = '#e7f3ff';
+    resultDiv.style.color = '#004085';
+    resultDiv.innerHTML = '🔄 연결 테스트 중...';
+    
+    try {
+        const response = await fetch('https://slack.com/api/auth.test', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.ok) {
+            resultDiv.style.background = '#d4edda';
+            resultDiv.style.color = '#155724';
+            resultDiv.innerHTML = `✅ 연결 성공! 봇 이름: ${result.bot_id ? '봇' : result.user} (워크스페이스: ${result.team})`;
+        } else {
+            resultDiv.style.background = '#f8d7da';
+            resultDiv.style.color = '#721c24';
+            resultDiv.innerHTML = `❌ 연결 실패: ${result.error}`;
+        }
+    } catch (error) {
+        resultDiv.style.background = '#f8d7da';
+        resultDiv.style.color = '#721c24';
+        resultDiv.innerHTML = `❌ 오류: ${error.message}`;
+    }
+}
+
 // ===== 토스트 알림 시스템 =====
 function showToast(type, title, message, duration = 4000) {
     const container = document.getElementById('toastContainer');
@@ -1142,8 +1295,44 @@ function registerLeave() {
     
     // 백그라운드로 Firebase 저장
     saveData();
+    
+    // Slack 알림 발송 (비동기)
+    sendLeaveSlackNotification(employee, leaveType, days);
 }
 
+// 휴가 등록 시 Slack 알림 발송
+async function sendLeaveSlackNotification(employee, leaveType, days) {
+    try {
+        // Slack 설정 확인
+        if (!SLACK_CONFIG.enabled || !SLACK_CONFIG.botToken) {
+            console.log('📱 Slack 알림 비활성화 상태');
+            return;
+        }
+        
+        // 직원의 Slack 설정 확인
+        const hrData = employee.hrData || {};
+        if (!hrData.slackId || hrData.slackNotify === false) {
+            console.log('📱 해당 직원 Slack 알림 비활성화 또는 ID 없음:', employee.name);
+            return;
+        }
+        
+        // 잔여 휴가 계산
+        const remainingLeave = leaveType === 'annual' 
+            ? (employee.annualLeave - employee.usedAnnual)
+            : (employee.monthlyLeave - employee.usedMonthly);
+        
+        // 알림 메시지 생성 및 발송
+        const message = createLeaveNotificationMessage(employee, leaveType, days, remainingLeave);
+        const success = await sendSlackDM(hrData.slackId, message);
+        
+        if (success) {
+            console.log('✅ Slack 휴가 알림 발송 완료:', employee.name);
+        }
+    } catch (error) {
+        console.error('❌ Slack 알림 발송 오류:', error);
+        // 알림 실패해도 휴가 등록은 이미 완료됨
+    }
+}
 
 // 휴가 내역 렌더링
 function renderLeaveHistory() {
@@ -2323,6 +2512,9 @@ async function initializeApp() {
     // 저장된 테마 불러오기
     loadSavedTheme();
     
+    // Slack 설정 로드
+    loadSlackConfig();
+    
     await loadData(); // Firebase에서 데이터 로드
     
     // 한 번만 데이터 정리 실행 (관리자만)
@@ -3152,6 +3344,8 @@ function showTab(tabName) {
         // HR 탭으로 전환 시 HR 데이터 로드
         updateHREmployeeDropdown();
         renderHREmployeeList();
+        // Slack 설정 UI 초기화
+        initSlackSettingsUI();
     }
 }
 
@@ -3208,6 +3402,8 @@ async function loadEmployeeHRData() {
     document.getElementById('hrDepartment').value = hrData.department || '';
     document.getElementById('hrPosition').value = hrData.position || '';
     document.getElementById('hrNotes').value = hrData.notes || '';
+    document.getElementById('hrSlackId').value = hrData.slackId || '';
+    document.getElementById('hrSlackNotify').value = hrData.slackNotify !== false ? 'true' : 'false';
 }
 
 // HR 폼 초기화
@@ -3221,6 +3417,8 @@ function clearHRForm() {
     document.getElementById('hrDepartment').value = '';
     document.getElementById('hrPosition').value = '';
     document.getElementById('hrAddress').value = '';
+    document.getElementById('hrSlackId').value = '';
+    document.getElementById('hrSlackNotify').value = 'true';
     document.getElementById('hrNotes').value = '';
 }
 
@@ -3242,6 +3440,8 @@ async function saveEmployeeHRData() {
     const position = document.getElementById('hrPosition').value.trim();
     const address = document.getElementById('hrAddress').value.trim();
     const notes = document.getElementById('hrNotes').value.trim();
+    const slackId = document.getElementById('hrSlackId').value.trim();
+    const slackNotify = document.getElementById('hrSlackNotify').value === 'true';
     
     if (!name || !joinDate) {
         alert('이름과 입사일은 필수 항목입니다.');
@@ -3307,6 +3507,8 @@ async function saveEmployeeHRData() {
         department: department,
         position: position,
         notes: notes,
+        slackId: slackId,           // Slack 멤버 ID
+        slackNotify: slackNotify,   // Slack 알림 활성화 여부
         lastUpdated: new Date().toISOString()
     };
     

@@ -229,6 +229,19 @@
                                 </div>
                             </div>
                             <div class="form-row">
+                                <div class="form-group">
+                                    <label>Slack ID:</label>
+                                    <input type="text" id="hrSlackId" placeholder="U12345678 (멤버 ID)">
+                                </div>
+                                <div class="form-group">
+                                    <label>Slack 알림:</label>
+                                    <select id="hrSlackNotify">
+                                        <option value="true">활성화</option>
+                                        <option value="false">비활성화</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
                                 <div class="form-group full-width">
                                     <label>비고:</label>
                                     <textarea id="hrNotes" placeholder="특이사항, 메모 등" rows="3"></textarea>
@@ -249,6 +262,31 @@
                             <input type="text" id="hrSearchInput" placeholder="이름, 부서, 직급으로 검색..." onkeyup="filterHRList()">
                         </div>
                         <div class="hr-employee-list" id="hrEmployeeList"></div>
+                    </div>
+                    <!-- Slack 설정 섹션 -->
+                    <div class="hr-form-section" style="margin-top: 30px; border-top: 2px solid #e0e0e0; padding-top: 20px;">
+                        <h3>🔔 Slack 알림 설정</h3>
+                        <p style="color: #666; margin-bottom: 15px;">휴가 등록 시 해당 직원에게 Slack DM으로 잔여 휴가를 알려줍니다.</p>
+                        <div class="hr-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Slack 알림:</label>
+                                    <select id="slackEnabled" onchange="updateSlackEnabled()">
+                                        <option value="false">비활성화</option>
+                                        <option value="true">활성화</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Bot Token:</label>
+                                    <input type="password" id="slackBotToken" placeholder="xoxb-로 시작하는 토큰">
+                                </div>
+                            </div>
+                            <div class="hr-buttons">
+                                <button onclick="saveSlackSettings()">Slack 설정 저장</button>
+                                <button onclick="testSlackConnection()">연결 테스트</button>
+                            </div>
+                            <div id="slackTestResult" style="margin-top: 10px; padding: 10px; display: none;"></div>
+                        </div>
                     </div>
                 </section>
             </div>
