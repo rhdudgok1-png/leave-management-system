@@ -1427,8 +1427,14 @@ async function saveEmployee(employee) {
                 ...employee,
                 sortOrder: employee.sortOrder !== undefined ? employee.sortOrder : 999
             };
-            await database.ref(`employees/${employee.id}`).set(employeeData);
-            console.log('Firebase에 직원 저장 완료:', employee.name, 'sortOrder:', employeeData.sortOrder);
+            
+            // Firebase는 undefined 값을 허용하지 않으므로 null로 변환
+            const cleanedData = JSON.parse(JSON.stringify(employeeData, (key, value) => 
+                value === undefined ? null : value
+            ));
+            
+            await database.ref(`employees/${employee.id}`).set(cleanedData);
+            console.log('Firebase에 직원 저장 완료:', employee.name, 'sortOrder:', cleanedData.sortOrder);
         } catch (error) {
             console.log('Firebase 직원 저장 실패:', error);
         }
