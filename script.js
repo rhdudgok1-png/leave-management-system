@@ -451,15 +451,57 @@ async function addEmployee() {
     
     employees.push(employee);
     
-    // 보안 강화된 Firebase + 로컬 백업으로 저장
-    await saveEmployee(employee);
-    saveData();
-    
-    // UI 업데이트
+    // 낙관적 업데이트: UI 먼저 즉시 반영
     document.getElementById('employeeName').value = '';
     document.getElementById('joinDate').value = '';
     renderEmployeeSummary();
     updateModalEmployeeDropdown();
+    
+    // 백그라운드로 Firebase + 로컬 백업 저장
+    saveEmployee(employee).catch(error => {
+        console.error('직원 저장 실패:', error);
+        showErrorToast('직원 저장에 실패했습니다.');
+    });
+    saveData();
+}
+
+// ===== 연차/월차 계산 캐싱 시스템 =====
+const leaveCalculationCache = new Map();
+
+// 캐시 초기화 (자정에 자동 초기화하려면 타이머 사용 가능)
+function clearLeaveCache() {
+    leaveCalculationCache.clear();
+    console.log('💾 연차/월차 캐시 초기화');
+}
+
+// 캐싱이 적용된 연차/월차 계산
+function calculateEmployeeLeavesWithCache(employee) {
+    const today = new Date();
+    const cacheKey = `${employee.id}_${today.toDateString()}`;
+    
+    // 캐시 확인
+    if (leaveCalculationCache.has(cacheKey)) {
+        // 캐시에서 복사해서 employee 객체에 적용
+        const cached = leaveCalculationCache.get(cacheKey);
+        employee.annualLeave = cached.annualLeave;
+        employee.monthlyLeave = cached.monthlyLeave;
+        employee.usedAnnual = cached.usedAnnual;
+        employee.usedMonthly = cached.usedMonthly;
+        employee.lastAnnualReset = cached.lastAnnualReset;
+        return;
+    }
+    
+    // 캐시 미스 - 실제 계산 수행
+    calculateEmployeeLeaves(employee);
+    
+    // 결과 캐싱
+    leaveCalculationCache.set(cacheKey, {
+        annualLeave: employee.annualLeave,
+        monthlyLeave: employee.monthlyLeave,
+        usedAnnual: employee.usedAnnual,
+        usedMonthly: employee.usedMonthly,
+        lastAnnualReset: employee.lastAnnualReset
+    });
 }
 
 // 직원별 연차/월차 계산
@@ -550,7 +592,7 @@ function calculateEmployeeLeaves(employee) {
 // 모든 직원의 연차/월차 계산
 function calculateLeaves() {
     employees.forEach(employee => {
-        calculateEmployeeLeaves(employee);
+        calculateEmployeeLeavesWithCache(employee); // 캐싱 적용
     });
     saveData();
     renderEmployeeSummary();
@@ -1092,14 +1134,14 @@ function registerLeave() {
         leaveRecords.push(leaveRecord);
     });
     
-    saveData();
-    
-    // UI 업데이트
+    // 낙관적 업데이트: UI 먼저 즉시 반영
     renderEmployeeSummary();
     renderCalendar();
-    
     showToast('success', '휴가 등록 완료', '휴가가 성공적으로 등록되었습니다.');
     closeLeaveModal();
+    
+    // 백그라운드로 Firebase 저장
+    saveData();
 }
 
 
@@ -1342,7 +1384,7 @@ async function loadData() {
                 
                 employees = uniqueEmployees;
                 if (Array.isArray(employees)) {
-                    employees.forEach(emp => calculateEmployeeLeaves(emp));
+                    employees.forEach(emp => calculateEmployeeLeavesWithCache(emp)); // 캐싱 적용
                     // sortOrder로 정렬 (저장된 순서 유지)
                     console.log('정렬 전 직원 순서:', employees.map(e => `${e.name}(${e.sortOrder})`));
                     employees.sort((a, b) => {
@@ -1386,7 +1428,7 @@ async function loadData() {
     
     if (savedEmployees) {
         employees = JSON.parse(savedEmployees);
-        employees.forEach(emp => calculateEmployeeLeaves(emp));
+        employees.forEach(emp => calculateEmployeeLeavesWithCache(emp)); // 캐싱 적용
         console.log('로컬에서 직원 데이터 로드 완료:', employees.length + '명');
     }
     
@@ -2126,10 +2168,25 @@ function setupUIPermissions() {
 
 // 휴가/직원 데이터 실시간 구독 (충돌 방지)
 function subscribeRealtimeData() {
-    if (!isFirebaseEnabled || isRealtimeSubscribed) return;
+    if (!isFirebaseEnabled) return;
     
-    isRealtimeSubscribed = true; // 중복 구독 방지
-    console.log('🔥 실시간 구독 시작');
+    // 중복 구독 방지: 이미 구독 중이면 리턴
+    if (isRealtimeSubscribed) {
+        console.log('⚠️ 이미 구독 중이므로 중복 구독 방지');
+        return;
+    }
+    
+    // 안전장치: 구독 전에 기존 리스너 먼저 해제
+    try {
+        database.ref('employees').off();
+        database.ref('leaveRecords').off();
+        database.ref('overtimeRecords').off();
+    } catch (e) {
+        console.log('기존 리스너 해제 시도:', e.message);
+    }
+    
+    isRealtimeSubscribed = true;
+    console.log('🔥 실시간 구독 시작 (중복 방지 강화)');
 
     // 직원 리스트 실시간 반영 (개별 방식)
     database.ref('employees').on('value', (snap) => {
@@ -2168,7 +2225,7 @@ function subscribeRealtimeData() {
                         return orderA - orderB;
                     });
                     
-                    employees.forEach(emp => calculateEmployeeLeaves(emp));
+                    employees.forEach(emp => calculateEmployeeLeavesWithCache(emp)); // 캐싱 적용
                     renderEmployeeSummary();
                     updateModalEmployeeDropdown();
                     renderCalendar();
@@ -2495,8 +2552,9 @@ function unsubscribeRealtimeData() {
         try {
             database.ref('employees').off();
             database.ref('leaveRecords').off();
+            database.ref('overtimeRecords').off(); // 야근 리스너도 해제
             isRealtimeSubscribed = false;
-            console.log('실시간 구독 해제 완료');
+            console.log('실시간 구독 해제 완료 (employees, leaveRecords, overtimeRecords)');
         } catch (error) {
             console.log('구독 해제 실패:', error);
         }
@@ -3594,10 +3652,7 @@ async function addOvertimeRecord() {
 
     overtimeRecords.push(overtimeRecord);
 
-    // Firebase에 저장
-    await saveOvertimeRecord(overtimeRecord);
-    saveData();
-
+    // 낙관적 업데이트: UI 먼저 즉시 반영
     // 폼 초기화
     document.getElementById('overtimeDate').value = '';
     document.getElementById('overtimeEmployee').value = '';
@@ -3609,8 +3664,14 @@ async function addOvertimeRecord() {
     renderOvertimeCalendar();
     renderOvertimeList();
     renderOvertimeSummary();
-
     showToast('success', '야근 기록', '야근 기록이 추가되었습니다.');
+
+    // 백그라운드로 Firebase 저장
+    saveOvertimeRecord(overtimeRecord).catch(error => {
+        console.error('야근 기록 저장 실패:', error);
+        showErrorToast('야근 기록 저장에 실패했습니다.');
+    });
+    saveData();
 }
 
 // 야근 달력 렌더링
