@@ -1308,6 +1308,9 @@ function registerLeave() {
         leaveRecords.push(leaveRecord);
     });
     
+    // Slack 알림용 날짜 복사 (closeLeaveModal에서 selectedDates가 초기화되기 전에)
+    const leaveDates = [...selectedDates];
+    
     // 낙관적 업데이트: UI 먼저 즉시 반영
     renderEmployeeSummary();
     renderCalendar();
@@ -1318,7 +1321,7 @@ function registerLeave() {
     saveData();
     
     // Slack 알림 발송 (비동기) - 날짜, 시간 정보 포함
-    sendLeaveSlackNotification(employee, leaveType, days, selectedDates, leaveDuration);
+    sendLeaveSlackNotification(employee, leaveType, days, leaveDates, leaveDuration);
 }
 
 // 휴가 등록 시 Slack 알림 발송
