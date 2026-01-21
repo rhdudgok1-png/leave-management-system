@@ -72,14 +72,32 @@ async function sendSlackDM(slackUserId, message) {
 }
 
 // 휴가 사용 알림 메시지 생성
-function createLeaveNotificationMessage(employee, leaveType, days, remainingLeave) {
+function createLeaveNotificationMessage(employee, leaveType, days, remainingLeave, dates, duration) {
     const typeText = leaveType === 'annual' ? '연차' : '월차';
     const emoji = leaveType === 'annual' ? '🏖️' : '📅';
     
+    // 시간 구분 텍스트
+    let durationText = '종일';
+    if (duration === 'morning') durationText = '오전반차';
+    else if (duration === 'afternoon') durationText = '오후반차';
+    
+    // 날짜 포맷팅
+    let dateText = '';
+    if (dates && dates.length > 0) {
+        const sortedDates = [...dates].sort();
+        if (sortedDates.length === 1) {
+            dateText = sortedDates[0];
+        } else {
+            dateText = `${sortedDates[0]} ~ ${sortedDates[sortedDates.length - 1]} (${sortedDates.length}일)`;
+        }
+    }
+    
     return `${emoji} *휴가 사용 알림*\n\n` +
            `안녕하세요, *${employee.name}*님!\n\n` +
-           `• 사용한 휴가: ${typeText} ${days}일\n` +
-           `• 잔여 ${typeText}: *${remainingLeave.toFixed(1)}일*\n\n` +
+           `📆 *날짜:* ${dateText}\n` +
+           `📋 *종류:* ${typeText} (${durationText})\n` +
+           `⏱️ *사용:* ${days}일\n` +
+           `💼 *잔여 ${typeText}:* *${remainingLeave.toFixed(1)}일*\n\n` +
            `좋은 휴식 되세요! 😊`;
 }
 
@@ -1299,12 +1317,12 @@ function registerLeave() {
     // 백그라운드로 Firebase 저장
     saveData();
     
-    // Slack 알림 발송 (비동기)
-    sendLeaveSlackNotification(employee, leaveType, days);
+    // Slack 알림 발송 (비동기) - 날짜, 시간 정보 포함
+    sendLeaveSlackNotification(employee, leaveType, days, selectedDates, leaveDuration);
 }
 
 // 휴가 등록 시 Slack 알림 발송
-async function sendLeaveSlackNotification(employee, leaveType, days) {
+async function sendLeaveSlackNotification(employee, leaveType, days, dates, duration) {
     try {
         // Slack 설정 확인
         if (!SLACK_CONFIG.enabled || !SLACK_CONFIG.botToken) {
@@ -1325,7 +1343,7 @@ async function sendLeaveSlackNotification(employee, leaveType, days) {
             : (employee.monthlyLeave - employee.usedMonthly);
         
         // 알림 메시지 생성 및 발송
-        const message = createLeaveNotificationMessage(employee, leaveType, days, remainingLeave);
+        const message = createLeaveNotificationMessage(employee, leaveType, days, remainingLeave, dates, duration);
         const success = await sendSlackDM(hrData.slackId, message);
         
         if (success) {
