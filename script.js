@@ -35,7 +35,7 @@ function saveSlackConfig() {
     }));
 }
 
-// Slack DM 발송 함수
+// Slack DM 발송 함수 (CORS 우회: form-urlencoded 사용)
 async function sendSlackDM(slackUserId, message) {
     if (!SLACK_CONFIG.enabled || !SLACK_CONFIG.botToken || !slackUserId) {
         console.log('Slack 알림 스킵: 설정 미완료 또는 Slack ID 없음');
@@ -43,19 +43,18 @@ async function sendSlackDM(slackUserId, message) {
     }
     
     try {
-        // CORS 우회를 위해 no-cors 모드 사용 (응답 확인 불가)
-        // 실제 운영에서는 프록시 서버 권장
+        // CORS 우회: application/x-www-form-urlencoded 사용
+        const params = new URLSearchParams();
+        params.append('token', SLACK_CONFIG.botToken);
+        params.append('channel', slackUserId);
+        params.append('text', message);
+        
         const response = await fetch('https://slack.com/api/chat.postMessage', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${SLACK_CONFIG.botToken}`,
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: JSON.stringify({
-                channel: slackUserId, // User ID로 DM 발송
-                text: message,
-                mrkdwn: true
-            })
+            body: params
         });
         
         const result = await response.json();
@@ -119,7 +118,7 @@ function saveSlackSettings() {
     showToast('success', 'Slack 설정 저장', 'Slack 알림 설정이 저장되었습니다.');
 }
 
-// Slack 연결 테스트
+// Slack 연결 테스트 (CORS 우회: form-urlencoded 사용)
 async function testSlackConnection() {
     const resultDiv = document.getElementById('slackTestResult');
     const token = document.getElementById('slackBotToken').value.trim();
@@ -138,12 +137,16 @@ async function testSlackConnection() {
     resultDiv.innerHTML = '🔄 연결 테스트 중...';
     
     try {
+        // CORS 우회: application/x-www-form-urlencoded 사용
+        const params = new URLSearchParams();
+        params.append('token', token);
+        
         const response = await fetch('https://slack.com/api/auth.test', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            }
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params
         });
         
         const result = await response.json();
