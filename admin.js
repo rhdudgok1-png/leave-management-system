@@ -15,7 +15,9 @@ const firebaseConfig = {
 // Firebase 변수
 let firebase_app = null;
 let database = null;
+let auth = null;
 let isFirebaseEnabled = false;
+let isGoogleLoggedIn = false;
 
 // 토큰 저장소 (Firebase + 로컬 백업)
 let tokenDatabase = JSON.parse(localStorage.getItem('tokenDatabase') || '{}');
@@ -56,14 +58,49 @@ function initializeFirebase() {
         if (typeof firebase !== 'undefined') {
             firebase_app = firebase.initializeApp(firebaseConfig);
             database = firebase.database();
+            auth = firebase.auth();
             isFirebaseEnabled = true;
             console.log('관리자 페이지 - Firebase 초기화 성공');
+            
+            // 인증 상태 감시
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    isGoogleLoggedIn = true;
+                    document.getElementById('googleLoginSection').style.display = 'none';
+                    document.getElementById('passwordSection').style.display = 'block';
+                    document.getElementById('loggedInEmail').textContent = user.email;
+                    console.log('Google 로그인 상태:', user.email);
+                } else {
+                    isGoogleLoggedIn = false;
+                }
+            });
         } else {
             console.log('Firebase를 사용할 수 없습니다. 로컬 저장소를 사용합니다.');
         }
     } catch (error) {
         console.log('Firebase 초기화 실패:', error);
         isFirebaseEnabled = false;
+    }
+}
+
+// Google 로그인 (관리자 페이지용)
+async function googleLoginForAdmin() {
+    if (!auth) {
+        alert('Firebase Auth가 초기화되지 않았습니다.');
+        return;
+    }
+    
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        const result = await auth.signInWithPopup(provider);
+        console.log('Google 로그인 성공:', result.user.email);
+        
+        document.getElementById('googleLoginStatus').innerHTML = 
+            `<span style="color: green;">✅ ${result.user.email} 로그인 성공!</span>`;
+    } catch (error) {
+        console.error('Google 로그인 실패:', error);
+        document.getElementById('googleLoginStatus').innerHTML = 
+            `<span style="color: red;">❌ 로그인 실패: ${error.message}</span>`;
     }
 }
 
@@ -464,6 +501,7 @@ function loadTokenList() {
         const tokenInfo = tokenDatabase[token];
         const isExpired = new Date(tokenInfo.expires) < new Date();
         const status = isExpired ? 'expired' : tokenInfo.status;
+        const hasEmail = tokenInfo.email ? true : false;
         
         const tokenItem = document.createElement('div');
         tokenItem.className = 'token-item';
@@ -474,25 +512,89 @@ function loadTokenList() {
                     <strong>${tokenInfo.name}</strong>
                     <span class="token-status ${status}">${status === 'active' ? '활성' : '만료'}</span>
                 </div>
-                <div class="token-id">${token}</div>
-                <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                    권한: ${getRoleText(tokenInfo.role)} | 
-                    만료: ${tokenInfo.expires} |
-                    생성: ${new Date(tokenInfo.created).toLocaleDateString()}
-                    ${tokenInfo.lastUsed ? `| 마지막 사용: ${new Date(tokenInfo.lastUsed).toLocaleDateString()}` : ''}
+                <div class="token-id" style="font-size: 11px;">${token}</div>
+                <div style="font-size: 12px; margin-top: 5px;">
+                    ${hasEmail 
+                        ? `<span style="color: #28a745;">📧 ${tokenInfo.email}</span>` 
+                        : `<span style="color: #dc3545;">⚠️ 이메일 미등록</span>`
+                    }
+                </div>
+                <div style="font-size: 11px; color: #666; margin-top: 3px;">
+                    권한: ${getRoleText(tokenInfo.role)} | 만료: ${tokenInfo.expires}
                 </div>
             </div>
-            <div class="token-actions">
+            <div class="token-actions" style="flex-direction: column; gap: 3px;">
+                <button class="btn" style="background: #17a2b8; color: white;" onclick="editTokenEmail('${token}')">
+                    ${hasEmail ? '✏️ 이메일 수정' : '➕ 이메일 추가'}
+                </button>
                 ${status === 'active' ? 
                     `<button class="btn btn-danger" onclick="revokeToken('${token}')">해지</button>` :
                     `<button class="btn btn-success" onclick="reactivateToken('${token}')">재활성화</button>`
                 }
-                <button class="btn btn-danger" onclick="deleteToken('${token}')">삭제</button>
             </div>
         `;
         
         tokenList.appendChild(tokenItem);
     });
+}
+
+// 토큰에 이메일 추가/수정
+async function editTokenEmail(token) {
+    const tokenInfo = tokenDatabase[token];
+    const currentEmail = tokenInfo.email || '';
+    
+    const newEmail = prompt(
+        `${tokenInfo.name}님의 Google 이메일을 입력하세요:\n\n(이 이메일로 로그인하면 자동으로 ${getRoleText(tokenInfo.role)} 권한이 부여됩니다)`,
+        currentEmail
+    );
+    
+    if (newEmail === null) return; // 취소
+    
+    const email = newEmail.trim().toLowerCase();
+    
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        alert('올바른 이메일 형식을 입력해주세요.');
+        return;
+    }
+    
+    try {
+        // 토큰 정보에 이메일 추가
+        tokenInfo.email = email;
+        tokenDatabase[token] = tokenInfo;
+        localStorage.setItem('tokenDatabase', JSON.stringify(tokenDatabase));
+        
+        // Firebase 토큰에도 저장
+        await saveTokenToFirebase(token, tokenInfo);
+        
+        // authorized_users에도 등록 (이메일이 있을 경우만)
+        if (email) {
+            const emailKey = email.replace(/\./g, '_dot_').replace(/@/g, '_at_');
+            const userInfo = {
+                name: tokenInfo.name,
+                email: email,
+                role: tokenInfo.role,
+                expires: tokenInfo.expires,
+                created: tokenInfo.created || new Date().toISOString(),
+                lastUsed: null,
+                status: 'active'
+            };
+            
+            await database.ref(`authorized_users/${emailKey}`).set(userInfo);
+            console.log('authorized_users에 등록 완료:', email);
+        }
+        
+        loadTokenList();
+        await refreshAuthorizedUsers();
+        
+        alert(email 
+            ? `이메일이 설정되었습니다!\n\n${tokenInfo.name}님이 ${email}로 Google 로그인하면\n자동으로 ${getRoleText(tokenInfo.role)} 권한이 부여됩니다.`
+            : '이메일이 제거되었습니다.'
+        );
+        
+    } catch (error) {
+        console.error('이메일 설정 실패:', error);
+        alert('이메일 설정 실패: ' + error.message);
+    }
 }
 
 // 권한 텍스트 변환

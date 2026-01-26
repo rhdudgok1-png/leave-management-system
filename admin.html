@@ -146,12 +146,29 @@
         <div id="adminAuth" style="display: block;">
             <div style="text-align: center; padding: 50px;">
                 <h3>관리자 인증</h3>
-                <input type="password" id="adminPassword" placeholder="관리자 비밀번호" 
-                       style="padding: 12px; margin: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                <br>
-                <button onclick="authenticateAdmin()" class="generate-btn" style="width: auto; margin-top: 10px;">
-                    관리자 로그인
-                </button>
+                <p style="color: #666; margin-bottom: 20px;">Google 로그인 후 관리자 비밀번호를 입력하세요</p>
+                
+                <!-- Google 로그인 상태 -->
+                <div id="googleLoginSection">
+                    <button onclick="googleLoginForAdmin()" style="padding: 12px 24px; background: #4285f4; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; margin-bottom: 20px;">
+                        🔐 Google 계정으로 로그인
+                    </button>
+                    <div id="googleLoginStatus" style="margin: 10px 0; color: #666;"></div>
+                </div>
+                
+                <!-- 비밀번호 입력 (Google 로그인 후 표시) -->
+                <div id="passwordSection" style="display: none;">
+                    <div style="background: #d4edda; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                        ✅ <span id="loggedInEmail"></span> 로그인됨
+                    </div>
+                    <input type="password" id="adminPassword" placeholder="관리자 비밀번호" 
+                           style="padding: 12px; margin: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                    <br>
+                    <button onclick="authenticateAdmin()" class="generate-btn" style="width: auto; margin-top: 10px;">
+                        관리자 패널 열기
+                    </button>
+                </div>
+                
                 <div id="adminError" style="color: red; margin-top: 10px; display: none;">
                     잘못된 관리자 비밀번호입니다.
                 </div>
@@ -251,6 +268,7 @@
     <!-- Firebase SDK (compat) - 안정적인 버전 -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     
     <!-- 토큰 목록 -->
     <script src="tokens.js"></script>
