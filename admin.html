@@ -163,15 +163,20 @@
             <div class="token-management">
                 <!-- 토큰 생성 -->
                 <div class="token-section">
-                    <h3>🎫 새 토큰 생성</h3>
+                    <h3>🎫 새 사용자 등록</h3>
                     <div class="form-group">
                         <label>사용자 이름</label>
                         <input type="text" id="userName" placeholder="예: 김철수" maxlength="20" required>
                     </div>
                     <div class="form-group">
+                        <label>Google 이메일 (필수)</label>
+                        <input type="email" id="userEmail" placeholder="예: user@gmail.com" required>
+                        <small style="color: #666; font-size: 11px;">* 이 이메일로 로그인하면 자동으로 권한이 부여됩니다</small>
+                    </div>
+                    <div class="form-group">
                         <label>권한</label>
                         <select id="userRole">
-                            <option value="user">일반 사용자</option>
+                            <option value="user">일반 사용자 (조회만)</option>
                             <option value="manager">매니저</option>
                             <option value="admin">관리자</option>
                         </select>
@@ -180,7 +185,7 @@
                         <label>만료일</label>
                         <input type="date" id="expiryDate">
                     </div>
-                    <button onclick="generateToken()" class="generate-btn">토큰 생성</button>
+                    <button onclick="registerAuthorizedUser()" class="generate-btn">사용자 등록</button>
                     
                     <div id="generatedToken" style="margin-top: 15px; display: none;">
                         <h4>생성된 토큰:</h4>
@@ -191,17 +196,30 @@
                     </div>
                 </div>
 
-                <!-- 토큰 목록 -->
+                <!-- 등록된 사용자 목록 -->
                 <div class="token-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3>👥 발급된 토큰 목록</h3>
-                        <button onclick="forceLoadFromFirebase()" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        <h3>👥 등록된 사용자 (이메일 기반)</h3>
+                        <button onclick="refreshAuthorizedUsers()" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
                             🔄 새로고침
                         </button>
                     </div>
-                    <div class="token-list" id="tokenList">
-                        <!-- 토큰 목록이 여기에 표시됩니다 -->
+                    <div class="token-list" id="authorizedUsersList">
+                        <!-- 등록된 사용자 목록이 여기에 표시됩니다 -->
                     </div>
+                </div>
+            </div>
+            
+            <!-- 기존 토큰 목록 (하위 호환성) -->
+            <div class="token-section" style="margin-bottom: 30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>🎫 기존 토큰 목록 (하위 호환)</h3>
+                    <button onclick="forceLoadFromFirebase()" style="padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        🔄 새로고침
+                    </button>
+                </div>
+                <div class="token-list" id="tokenList" style="max-height: 200px;">
+                    <!-- 토큰 목록이 여기에 표시됩니다 -->
                 </div>
             </div>
 

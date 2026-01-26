@@ -2034,9 +2034,6 @@ function initializeFirebase() {
             // Firebase 인증 상태 감시
             auth.onAuthStateChanged(async (user) => {
                 if (user) {
-                    // 로그인된 사용자의 Custom Claims에서 역할 가져오기
-                    const idTokenResult = await user.getIdTokenResult(true);
-                    const role = idTokenResult.claims.role || 'user';
                     const email = user.email || '';
                     const displayName = user.displayName || '';
                     const uid = user.uid;
@@ -2044,9 +2041,40 @@ function initializeFirebase() {
                         ? email.split('@')[0] 
                         : (displayName || (uid ? uid.slice(0, 6) : 'user'));
                     
+                    // Firebase authorized_users에서 이메일로 권한 확인
+                    let role = 'user'; // 기본값: 조회 전용
+                    let authorizedUserName = safeName;
+                    
+                    if (email) {
+                        try {
+                            const emailKey = email.toLowerCase().replace(/\./g, '_dot_').replace(/@/g, '_at_');
+                            const userSnapshot = await database.ref(`authorized_users/${emailKey}`).once('value');
+                            const authorizedUser = userSnapshot.val();
+                            
+                            if (authorizedUser && authorizedUser.status === 'active') {
+                                // 만료일 확인
+                                const expiryDate = new Date(authorizedUser.expires);
+                                if (expiryDate > new Date()) {
+                                    role = authorizedUser.role || 'user';
+                                    authorizedUserName = authorizedUser.name || safeName;
+                                    console.log(`✅ 등록된 사용자 확인: ${email} -> ${role}`);
+                                    
+                                    // 마지막 사용 시간 업데이트
+                                    database.ref(`authorized_users/${emailKey}/lastUsed`).set(new Date().toISOString());
+                                } else {
+                                    console.log(`⚠️ 권한 만료됨: ${email}, 만료일: ${authorizedUser.expires}`);
+                                }
+                            } else {
+                                console.log(`ℹ️ 등록되지 않은 사용자: ${email} -> 조회 전용`);
+                            }
+                        } catch (error) {
+                            console.log('권한 확인 실패, 기본 권한 사용:', error);
+                        }
+                    }
+                    
                     // 세션에 사용자 정보 저장
                     sessionStorage.setItem('userRole', role);
-                    sessionStorage.setItem('userName', safeName);
+                    sessionStorage.setItem('userName', authorizedUserName);
                     sessionStorage.setItem('userEmail', email || uid || '');
                     
                     isFirebaseEnabled = true;

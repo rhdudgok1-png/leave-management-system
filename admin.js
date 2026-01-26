@@ -198,7 +198,8 @@ async function authenticateAdmin() {
         await forceLoadFromFirebase();
         
         loadTokenList();
-        updateStats();
+        await refreshAuthorizedUsers(); // 등록된 사용자 목록도 로드
+        await updateStats();
     } else {
         errorDiv.style.display = 'block';
         document.getElementById('adminPassword').value = '';
@@ -231,7 +232,116 @@ async function forceLoadFromFirebase() {
     }
 }
 
-// 토큰 생성
+// 이메일 기반 사용자 등록 (새로운 방식)
+async function registerAuthorizedUser() {
+    const userName = document.getElementById('userName').value.trim();
+    const userEmail = document.getElementById('userEmail').value.trim().toLowerCase();
+    const userRole = document.getElementById('userRole').value;
+    const expiryDate = document.getElementById('expiryDate').value;
+    
+    if (!userName || !userEmail || !expiryDate) {
+        alert('사용자 이름, 이메일, 만료일을 모두 입력해주세요.');
+        return;
+    }
+    
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userEmail)) {
+        alert('올바른 이메일 형식을 입력해주세요.');
+        return;
+    }
+    
+    // Firebase에 authorized_users로 저장
+    const userInfo = {
+        name: userName,
+        email: userEmail,
+        role: userRole,
+        expires: expiryDate,
+        created: new Date().toISOString(),
+        lastUsed: null,
+        status: 'active'
+    };
+    
+    try {
+        // 이메일을 키로 사용 (특수문자 처리)
+        const emailKey = userEmail.replace(/\./g, '_dot_').replace(/@/g, '_at_');
+        
+        await database.ref(`authorized_users/${emailKey}`).set(userInfo);
+        console.log('Firebase에 사용자 등록 완료:', userEmail);
+        
+        // 기존 토큰 시스템도 유지 (하위 호환성)
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const rolePrefix = userRole.toUpperCase().substring(0, 3);
+        const token = `USR-2025-${rolePrefix}-${randomId}-${timestamp.toString().slice(-6)}`;
+        
+        const tokenInfo = {
+            name: userName,
+            email: userEmail,
+            role: userRole,
+            expires: expiryDate,
+            created: new Date().toISOString(),
+            lastUsed: null,
+            status: 'active'
+        };
+        
+        tokenDatabase[token] = tokenInfo;
+        localStorage.setItem('tokenDatabase', JSON.stringify(tokenDatabase));
+        await saveTokenToFirebase(token, tokenInfo);
+        updateMainSystemTokens();
+        
+        // 등록 완료 메시지 표시
+        document.getElementById('newTokenDisplay').innerHTML = `
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 8px;">
+                <h4 style="color: #155724; margin: 0 0 10px 0;">✅ 사용자 등록 완료!</h4>
+                <div><strong>이름:</strong> ${userName}</div>
+                <div><strong>이메일:</strong> ${userEmail}</div>
+                <div><strong>권한:</strong> ${getRoleText(userRole)}</div>
+                <div style="margin-top: 10px; padding: 10px; background: #fff; border-radius: 5px;">
+                    <strong>📌 안내:</strong><br>
+                    이제 <code>${userEmail}</code>로 Google 로그인하면<br>
+                    자동으로 <strong>${getRoleText(userRole)}</strong> 권한이 부여됩니다.
+                </div>
+            </div>
+        `;
+        document.getElementById('generatedToken').style.display = 'block';
+        
+        // 폼 초기화
+        document.getElementById('userName').value = '';
+        document.getElementById('userEmail').value = '';
+        
+        // 목록 새로고침
+        loadTokenList();
+        loadAuthorizedUsersList();
+        updateStats();
+        
+        alert(`사용자 등록 완료!\n\n${userName}님 (${userEmail})\n권한: ${getRoleText(userRole)}\n\n이제 해당 이메일로 Google 로그인하면 자동으로 권한이 부여됩니다.`);
+        
+    } catch (error) {
+        console.error('사용자 등록 실패:', error);
+        alert('사용자 등록에 실패했습니다: ' + error.message);
+    }
+}
+
+// 등록된 사용자 목록 로드
+async function loadAuthorizedUsersList() {
+    if (!isFirebaseEnabled) return;
+    
+    try {
+        const snapshot = await database.ref('authorized_users').once('value');
+        const users = snapshot.val() || {};
+        
+        console.log('등록된 사용자 목록:', Object.keys(users).length + '명');
+        
+        // 토큰 목록에 사용자 정보도 표시
+        return users;
+    } catch (error) {
+        console.log('사용자 목록 로드 실패:', error);
+        return {};
+    }
+}
+
+// 기존 토큰 생성 함수 (하위 호환성 유지)
 async function generateToken() {
     const userName = document.getElementById('userName').value.trim();
     const userRole = document.getElementById('userRole').value;
@@ -505,8 +615,110 @@ if (!window.ACTIVE_TOKENS[window.MASTER_TOKEN]) {
     }
 }
 
+// 등록된 사용자 목록 UI 표시
+async function refreshAuthorizedUsers() {
+    if (!isFirebaseEnabled) {
+        document.getElementById('authorizedUsersList').innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Firebase 연결 필요</p>';
+        return;
+    }
+    
+    try {
+        const snapshot = await database.ref('authorized_users').once('value');
+        const users = snapshot.val() || {};
+        const userList = document.getElementById('authorizedUsersList');
+        userList.innerHTML = '';
+        
+        const userKeys = Object.keys(users).sort((a, b) => 
+            new Date(users[b].created) - new Date(users[a].created)
+        );
+        
+        if (userKeys.length === 0) {
+            userList.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">등록된 사용자가 없습니다.</p>';
+            return;
+        }
+        
+        userKeys.forEach(emailKey => {
+            const userInfo = users[emailKey];
+            const isExpired = new Date(userInfo.expires) < new Date();
+            const status = isExpired ? 'expired' : userInfo.status;
+            
+            const userItem = document.createElement('div');
+            userItem.className = 'token-item';
+            
+            userItem.innerHTML = `
+                <div class="token-info">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <strong>${userInfo.name}</strong>
+                        <span class="token-status ${status}">${status === 'active' ? '활성' : '만료'}</span>
+                    </div>
+                    <div class="token-id" style="font-size: 12px;">${userInfo.email}</div>
+                    <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                        권한: ${getRoleText(userInfo.role)} | 
+                        만료: ${userInfo.expires} |
+                        생성: ${new Date(userInfo.created).toLocaleDateString()}
+                        ${userInfo.lastUsed ? `| 마지막 로그인: ${new Date(userInfo.lastUsed).toLocaleDateString()}` : ''}
+                    </div>
+                </div>
+                <div class="token-actions">
+                    ${status === 'active' ? 
+                        `<button class="btn btn-danger" onclick="revokeAuthorizedUser('${emailKey}')">해지</button>` :
+                        `<button class="btn btn-success" onclick="reactivateAuthorizedUser('${emailKey}')">재활성화</button>`
+                    }
+                    <button class="btn btn-danger" onclick="deleteAuthorizedUser('${emailKey}')">삭제</button>
+                </div>
+            `;
+            
+            userList.appendChild(userItem);
+        });
+        
+        console.log('등록된 사용자 목록 로드 완료:', userKeys.length + '명');
+    } catch (error) {
+        console.error('사용자 목록 로드 실패:', error);
+        document.getElementById('authorizedUsersList').innerHTML = '<p style="text-align: center; color: #dc3545; padding: 20px;">로드 실패</p>';
+    }
+}
+
+// 등록된 사용자 해지
+async function revokeAuthorizedUser(emailKey) {
+    if (confirm('이 사용자의 권한을 해지하시겠습니까?')) {
+        try {
+            await database.ref(`authorized_users/${emailKey}/status`).set('revoked');
+            await refreshAuthorizedUsers();
+            alert('사용자 권한이 해지되었습니다.');
+        } catch (error) {
+            alert('해지 실패: ' + error.message);
+        }
+    }
+}
+
+// 등록된 사용자 재활성화
+async function reactivateAuthorizedUser(emailKey) {
+    if (confirm('이 사용자의 권한을 재활성화하시겠습니까?')) {
+        try {
+            await database.ref(`authorized_users/${emailKey}/status`).set('active');
+            await refreshAuthorizedUsers();
+            alert('사용자 권한이 재활성화되었습니다.');
+        } catch (error) {
+            alert('재활성화 실패: ' + error.message);
+        }
+    }
+}
+
+// 등록된 사용자 삭제
+async function deleteAuthorizedUser(emailKey) {
+    if (confirm('이 사용자를 완전히 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+        try {
+            await database.ref(`authorized_users/${emailKey}`).remove();
+            await refreshAuthorizedUsers();
+            alert('사용자가 삭제되었습니다.');
+        } catch (error) {
+            alert('삭제 실패: ' + error.message);
+        }
+    }
+}
+
 // 통계 업데이트
-function updateStats() {
+async function updateStats() {
     const tokens = Object.keys(tokenDatabase);
     const activeTokens = tokens.filter(token => {
         const tokenInfo = tokenDatabase[token];
@@ -517,17 +729,32 @@ function updateStats() {
         return new Date(tokenInfo.expires) < new Date() || tokenInfo.status !== 'active';
     });
     
-    // 오늘 로그인한 토큰 수 (실제로는 로그 데이터 필요)
-    const todayLogins = tokens.filter(token => {
-        const tokenInfo = tokenDatabase[token];
-        if (!tokenInfo.lastUsed) return false;
-        const lastUsed = new Date(tokenInfo.lastUsed);
-        const today = new Date();
-        return lastUsed.toDateString() === today.toDateString();
-    }).length;
+    // 등록된 사용자 수도 포함
+    let authorizedUsersCount = 0;
+    let todayLogins = 0;
     
-    document.getElementById('totalTokens').textContent = tokens.length;
-    document.getElementById('activeTokens').textContent = activeTokens.length;
+    if (isFirebaseEnabled) {
+        try {
+            const snapshot = await database.ref('authorized_users').once('value');
+            const users = snapshot.val() || {};
+            authorizedUsersCount = Object.keys(users).filter(key => 
+                users[key].status === 'active' && new Date(users[key].expires) > new Date()
+            ).length;
+            
+            // 오늘 로그인한 사용자 수
+            todayLogins = Object.keys(users).filter(key => {
+                if (!users[key].lastUsed) return false;
+                const lastUsed = new Date(users[key].lastUsed);
+                const today = new Date();
+                return lastUsed.toDateString() === today.toDateString();
+            }).length;
+        } catch (error) {
+            console.log('사용자 통계 로드 실패:', error);
+        }
+    }
+    
+    document.getElementById('totalTokens').textContent = tokens.length + authorizedUsersCount;
+    document.getElementById('activeTokens').textContent = activeTokens.length + authorizedUsersCount;
     document.getElementById('expiredTokens').textContent = expiredTokens.length;
     document.getElementById('todayLogins').textContent = todayLogins;
 }
