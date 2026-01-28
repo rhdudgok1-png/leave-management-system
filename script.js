@@ -686,11 +686,13 @@ function calculateUsedLeavesFromRecords(employeeId, annualCycleStart = null) {
     leaveRecords.forEach(record => {
         if (record.employeeId === employeeId) {
             const days = record.days || 0;
-            const recordDate = new Date(record.date);
+            // date 또는 endDate 필드 사용 (호환성)
+            const dateStr = record.date || record.endDate || record.startDate;
+            const recordDate = dateStr ? new Date(dateStr) : null;
             
             if (record.type === 'annual') {
                 // 연차는 현재 연차 주기 내의 기록만 계산
-                if (annualCycleStart) {
+                if (annualCycleStart && recordDate) {
                     if (recordDate >= annualCycleStart) {
                         usedAnnual += days;
                     }
