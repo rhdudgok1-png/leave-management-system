@@ -1666,6 +1666,13 @@ async function loadData() {
             if (firebaseRecords) localStorage.setItem('leaveRecords', JSON.stringify(leaveRecords));
             if (firebaseOvertimeRecords) localStorage.setItem('overtimeRecords', JSON.stringify(overtimeRecords));
             
+            // 휴가 데이터 로드 후 사용량 재계산 (데이터 동기화)
+            employees.forEach(emp => {
+                clearLeaveCache(); // 캐시 초기화
+                calculateEmployeeLeaves(emp);
+            });
+            console.log('🔄 휴가 기록 기반 사용량 재계산 완료');
+            
             return;
             
         } catch (error) {
@@ -1687,6 +1694,12 @@ async function loadData() {
     if (savedRecords) {
         leaveRecords = JSON.parse(savedRecords);
         console.log('로컬에서 휴가 데이터 로드 완료:', leaveRecords.length + '개');
+        
+        // 휴가 데이터 로드 후 사용량 재계산
+        employees.forEach(emp => {
+            clearLeaveCache();
+            calculateEmployeeLeaves(emp);
+        });
     }
 
     if (savedOvertime) {
