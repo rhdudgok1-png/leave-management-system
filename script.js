@@ -678,14 +678,39 @@ function calculateEmployeeLeavesWithCache(employee) {
     });
 }
 
+// 휴가 기록에서 직원별 사용량 계산 (데이터 동기화 보장)
+function calculateUsedLeavesFromRecords(employeeId, annualCycleStart = null) {
+    let usedAnnual = 0;
+    let usedMonthly = 0;
+    
+    leaveRecords.forEach(record => {
+        if (record.employeeId === employeeId) {
+            const days = record.days || 0;
+            const recordDate = new Date(record.date);
+            
+            if (record.type === 'annual') {
+                // 연차는 현재 연차 주기 내의 기록만 계산
+                if (annualCycleStart) {
+                    if (recordDate >= annualCycleStart) {
+                        usedAnnual += days;
+                    }
+                } else {
+                    usedAnnual += days;
+                }
+            } else if (record.type === 'monthly') {
+                // 월차는 모든 기록 합산 (1년 미만 직원용)
+                usedMonthly += days;
+            }
+        }
+    });
+    
+    return { usedAnnual, usedMonthly };
+}
+
 // 직원별 연차/월차 계산
 function calculateEmployeeLeaves(employee) {
     const today = new Date();
     const joinDate = new Date(employee.joinDate);
-    
-    // 사용량 속성 초기화 (누락된 경우)
-    if (typeof employee.usedAnnual === 'undefined') employee.usedAnnual = 0;
-    if (typeof employee.usedMonthly === 'undefined') employee.usedMonthly = 0;
     
     // 근무일수 계산
     const daysDiff = Math.floor((today - joinDate) / (1000 * 60 * 60 * 24));
@@ -693,13 +718,17 @@ function calculateEmployeeLeaves(employee) {
     
     // 1년 미만 직원 - 월차만 지급
     if (yearsOfService < 1) {
+        // 휴가 기록에서 실제 사용량 계산 (월차)
+        const actualUsage = calculateUsedLeavesFromRecords(employee.id, null);
+        employee.usedMonthly = actualUsage.usedMonthly;
+        employee.usedAnnual = 0;
+        
         // 입사 후 '완료된' 개월 수 만큼만 월차 생성 (입사달 제외, 매 월 기념일에 1개)
         let completedMonths = (today.getFullYear() - joinDate.getFullYear()) * 12
                             + (today.getMonth() - joinDate.getMonth());
         if (today.getDate() < joinDate.getDate()) completedMonths -= 1; // 기념일 이전이면 아직 해당 달 미지급
         employee.monthlyLeave = Math.max(0, completedMonths);
         employee.annualLeave = 0; // 1년 미만은 연차 없음
-        employee.usedAnnual = 0;
         
         // 디버깅 로그 추가
         console.log(`${employee.name} 월차 계산: 입사일 ${employee.joinDate}, 근무일수 ${daysDiff}일 (${yearsOfService}년), 완료개월 ${completedMonths}, 총월차 ${employee.monthlyLeave}, 사용 ${employee.usedMonthly}, 잔여 ${employee.monthlyLeave - employee.usedMonthly}`);
@@ -721,6 +750,10 @@ function calculateEmployeeLeaves(employee) {
         } else {
             currentCycleStart = prevAnnualYear;
         }
+        
+        // 휴가 기록에서 실제 사용량 계산 (현재 연차 주기 내)
+        const actualUsage = calculateUsedLeavesFromRecords(employee.id, currentCycleStart);
+        employee.usedAnnual = actualUsage.usedAnnual;
         
         // 근속연수별 연차 계산 (근로기준법 기준)
         const calculateAnnualDays = (years) => {
@@ -750,7 +783,7 @@ function calculateEmployeeLeaves(employee) {
                 console.log(`${employee.name} 연차 주기 리셋: ${lastResetStr} → ${currentCycleStr}, ${currentAnnualDays}일 (${yearsOfService}년차)`);
                 employee.lastAnnualReset = currentCycleStr;
                 employee.annualLeave = currentAnnualDays;
-                employee.usedAnnual = 0; // 새 연차 주기에만 리셋
+                // usedAnnual은 이미 휴가 기록에서 계산됨 (현재 주기 내 기록만)
             } else {
                 // 같은 연차 주기 내에서는 근속연수 증가에 따른 연차 증가만 반영
                 if (employee.annualLeave !== currentAnnualDays) {
