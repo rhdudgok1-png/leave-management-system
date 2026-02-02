@@ -429,6 +429,9 @@ let isRealtimeSubscribed = false; // 중복 구독 방지
 // 공휴일 데이터 (자동 로드)
 let koreanHolidays = {};
 
+// 공공데이터포털 API 키 (한국천문연구원 특일정보)
+const DATA_GO_KR_API_KEY = '765c873c705ea776dabbb2c8a2d9f05ee7577578e7665277a833c69dc08869e0';
+
 // 기본 공휴일 (API 실패 시 사용)
 const defaultHolidays2025 = {
     '2025-01-01': '신정',
@@ -438,19 +441,77 @@ const defaultHolidays2025 = {
     '2025-03-01': '삼일절',
     '2025-05-05': '어린이날',
     '2025-05-06': '어린이날 대체공휴일',
-    '2025-05-13': '석가탄신일',
+    '2025-05-15': '부처님오신날',
     '2025-06-06': '현충일',
     '2025-08-15': '광복절',
     '2025-10-03': '개천절',
-    '2025-10-06': '추석연휴',
+    '2025-10-05': '추석연휴',
+    '2025-10-06': '추석',
     '2025-10-07': '추석연휴',
-    '2025-10-08': '추석',
-    '2025-10-09': '추석연휴',
+    '2025-10-08': '추석 대체공휴일',
     '2025-10-09': '한글날',
     '2025-12-25': '크리스마스'
 };
 
-// 공휴일 자동 로드
+// 공공데이터포털 API로 공휴일 가져오기 (대체공휴일 포함)
+async function loadHolidaysFromDataGoKr(year) {
+    const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo?serviceKey=${DATA_GO_KR_API_KEY}&solYear=${year}&numOfRows=50`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`공공데이터포털 API 응답 실패: ${response.status}`);
+    }
+    
+    const xmlText = await response.text();
+    
+    // XML 파싱
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+    
+    // 에러 체크
+    const resultCode = xmlDoc.querySelector('resultCode');
+    if (resultCode && resultCode.textContent !== '00') {
+        const resultMsg = xmlDoc.querySelector('resultMsg');
+        throw new Error(`API 에러: ${resultMsg ? resultMsg.textContent : '알 수 없는 오류'}`);
+    }
+    
+    const items = xmlDoc.querySelectorAll('item');
+    const holidayMap = {};
+    
+    items.forEach(item => {
+        const locdate = item.querySelector('locdate')?.textContent; // YYYYMMDD 형식
+        const dateName = item.querySelector('dateName')?.textContent;
+        const isHoliday = item.querySelector('isHoliday')?.textContent;
+        
+        // 공휴일만 추가 (isHoliday가 'Y'인 경우)
+        if (locdate && dateName && isHoliday === 'Y') {
+            // YYYYMMDD -> YYYY-MM-DD 형식으로 변환
+            const formattedDate = `${locdate.slice(0, 4)}-${locdate.slice(4, 6)}-${locdate.slice(6, 8)}`;
+            holidayMap[formattedDate] = dateName;
+        }
+    });
+    
+    return holidayMap;
+}
+
+// Nager API로 공휴일 가져오기 (폴백용)
+async function loadHolidaysFromNager(year) {
+    const response = await fetch(`https://date.nager.at/api/v3/publicholidays/${year}/KR`);
+    if (!response.ok) {
+        throw new Error(`Nager API 응답 실패: ${response.status}`);
+    }
+    
+    const holidays = await response.json();
+    const holidayMap = {};
+    
+    holidays.forEach(holiday => {
+        holidayMap[holiday.date] = holiday.localName || holiday.name;
+    });
+    
+    return holidayMap;
+}
+
+// 공휴일 자동 로드 (공공데이터포털 우선, 실패 시 Nager API 사용)
 async function loadHolidays(year) {
     try {
         console.log(`${year}년 공휴일 로딩 중...`);
@@ -463,38 +524,44 @@ async function loadHolidays(year) {
             // 1일 이내 캐시면 사용
             if (Date.now() - cachedData.timestamp < 24 * 60 * 60 * 1000) {
                 koreanHolidays = { ...koreanHolidays, ...cachedData.holidays };
-                console.log(`${year}년 공휴일 캐시 사용`);
+                console.log(`${year}년 공휴일 캐시 사용 (${cachedData.source})`);
                 return;
             }
         }
         
-        // API에서 공휴일 가져오기
-        const response = await fetch(`https://date.nager.at/api/v3/publicholidays/${year}/KR`);
-        if (response.ok) {
-            const holidays = await response.json();
+        let holidayMap = {};
+        let source = '';
+        
+        // 1차: 공공데이터포털 API 시도 (대체공휴일 포함)
+        try {
+            holidayMap = await loadHolidaysFromDataGoKr(year);
+            source = '공공데이터포털';
+            console.log(`${year}년 공휴일 공공데이터포털 API 로드 완료:`, Object.keys(holidayMap).length + '개');
+        } catch (dataGoKrError) {
+            console.warn(`공공데이터포털 API 실패, Nager API로 폴백:`, dataGoKrError.message);
             
-            // 한국어 이름으로 변환
-            const holidayMap = {};
-            holidays.forEach(holiday => {
-                holidayMap[holiday.date] = holiday.localName || holiday.name;
-            });
-            
-            // 전역 객체에 병합
-            koreanHolidays = { ...koreanHolidays, ...holidayMap };
-            
-            // 캐시에 저장
-            localStorage.setItem(cachedKey, JSON.stringify({
-                holidays: holidayMap,
-                timestamp: Date.now()
-            }));
-            
-            console.log(`${year}년 공휴일 API 로드 완료:`, Object.keys(holidayMap).length + '개');
-        } else {
-            throw new Error('API 응답 실패');
+            // 2차: Nager API 폴백
+            try {
+                holidayMap = await loadHolidaysFromNager(year);
+                source = 'Nager';
+                console.log(`${year}년 공휴일 Nager API 로드 완료:`, Object.keys(holidayMap).length + '개');
+            } catch (nagerError) {
+                throw new Error(`모든 API 실패: ${nagerError.message}`);
+            }
         }
         
+        // 전역 객체에 병합
+        koreanHolidays = { ...koreanHolidays, ...holidayMap };
+        
+        // 캐시에 저장
+        localStorage.setItem(cachedKey, JSON.stringify({
+            holidays: holidayMap,
+            source: source,
+            timestamp: Date.now()
+        }));
+        
     } catch (error) {
-        console.log(`${year}년 공휴일 API 실패, 기본 데이터 사용:`, error);
+        console.error(`${year}년 공휴일 API 모두 실패, 기본 데이터 사용:`, error);
         
         // API 실패 시 기본 데이터 사용
         if (year === 2025) {
