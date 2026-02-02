@@ -455,7 +455,8 @@ const defaultHolidays2025 = {
 
 // 공공데이터포털 API로 공휴일 가져오기 (대체공휴일 포함)
 async function loadHolidaysFromDataGoKr(year) {
-    const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo?serviceKey=${DATA_GO_KR_API_KEY}&solYear=${year}&numOfRows=50`;
+    const encodedKey = encodeURIComponent(DATA_GO_KR_API_KEY);
+    const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo?serviceKey=${encodedKey}&solYear=${year}&numOfRows=50`;
     
     const response = await fetch(url);
     if (!response.ok) {
