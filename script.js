@@ -71,10 +71,28 @@ async function sendSlackDM(slackUserId, message) {
     }
 }
 
+// 휴가 유형 텍스트 변환 헬퍼 함수
+function getLeaveTypeText(type) {
+    const typeMap = {
+        'annual': '연차',
+        'monthly': '월차',
+        'sick': '병가',
+        'official': '공가',
+        'education': '교육',
+        'vacation': '휴가',
+    };
+    return typeMap[type] || type;
+}
+
+// 차감 대상 휴가 유형인지 확인
+function isDeductibleLeaveType(type) {
+    return type === 'annual' || type === 'monthly';
+}
+
 // 휴가 사용 알림 메시지 생성
 function createLeaveNotificationMessage(employee, leaveType, days, remainingLeave, dates, duration) {
-    const typeText = leaveType === 'annual' ? '연차' : '월차';
-    const emoji = leaveType === 'annual' ? '🏖️' : '📅';
+    const typeText = getLeaveTypeText(leaveType);
+    const emoji = isDeductibleLeaveType(leaveType) ? (leaveType === 'annual' ? '🏖️' : '📅') : '📋';
     
     // 시간 구분 텍스트
     let durationText = '종일';
@@ -92,13 +110,24 @@ function createLeaveNotificationMessage(employee, leaveType, days, remainingLeav
         }
     }
     
-    return `${emoji} *휴가 사용 알림*\n\n` +
-           `안녕하세요, *${employee.name}*님!\n\n` +
-           `📆 *날짜:* ${dateText}\n` +
-           `📋 *종류:* ${typeText} (${durationText})\n` +
-           `⏱️ *사용:* ${days}일\n` +
-           `💼 *잔여 ${typeText}:* *${remainingLeave.toFixed(1)}일*\n\n` +
-           `좋은 휴식 되세요! 😊`;
+    // 차감 대상이 아닌 경우 잔여 일수 표시 안함
+    if (isDeductibleLeaveType(leaveType)) {
+        return `${emoji} *휴가 사용 알림*\n\n` +
+               `안녕하세요, *${employee.name}*님!\n\n` +
+               `📆 *날짜:* ${dateText}\n` +
+               `📋 *종류:* ${typeText} (${durationText})\n` +
+               `⏱️ *사용:* ${days}일\n` +
+               `💼 *잔여 ${typeText}:* *${remainingLeave.toFixed(1)}일*\n\n` +
+               `좋은 휴식 되세요! 😊`;
+    } else {
+        return `${emoji} *${typeText} 사용 알림*\n\n` +
+               `안녕하세요, *${employee.name}*님!\n\n` +
+               `📆 *날짜:* ${dateText}\n` +
+               `📋 *종류:* ${typeText} (${durationText})\n` +
+               `⏱️ *기간:* ${days}일\n` +
+               `ℹ️ *연차/월차 차감 없음*\n\n` +
+               `좋은 하루 되세요! 😊`;
+    }
 }
 
 // Slack 설정 UI 초기화
@@ -758,6 +787,11 @@ function calculateUsedLeavesFromRecords(employeeId, annualCycleStart = null) {
             const dateStr = record.date || record.endDate || record.startDate;
             const recordDate = dateStr ? new Date(dateStr) : null;
             
+            // 차감 대상이 아닌 유형은 사용량에서 제외 (병가, 공가, 교육 등)
+            if (!isDeductibleLeaveType(record.type)) {
+                return;
+            }
+            
             if (record.type === 'annual') {
                 // 연차는 현재 연차 주기 내의 기록만 계산
                 if (annualCycleStart && recordDate) {
@@ -1352,7 +1386,7 @@ function registerLeave() {
         return;
     }
     
-    // 1년 미만 직원은 월차만, 1년 이상 직원은 연차만 사용 가능
+    // 1년 미만 직원은 월차만, 1년 이상 직원은 연차만 사용 가능 (차감 대상만 체크)
     const currentDate = new Date();
     const joinDate = new Date(employee.joinDate);
     const yearsOfService = Math.floor((currentDate - joinDate) / (1000 * 60 * 60 * 24 * 365));
@@ -1374,26 +1408,29 @@ function registerLeave() {
         days = days * 0.5; // 반차
     }
     
-    // 잔여 휴가 확인 (선차감 가능)
-    if (leaveType === 'annual') {
-        const remainingAnnual = employee.annualLeave - employee.usedAnnual;
-        if (remainingAnnual < days) {
-            const shortage = days - remainingAnnual;
-            if (!confirm(`⚠️ 연차가 부족합니다!\n\n현재 잔여 연차: ${remainingAnnual.toFixed(1)}일\n사용하려는 일수: ${days}일\n부족한 일수: ${shortage.toFixed(1)}일\n\n선차감으로 처리하시겠습니까?\n(아직 생성되지 않은 연차를 미리 사용합니다)`)) {
-                return;
+    // 차감 대상 휴가만 잔여 확인 (병가/공가/교육은 차감 없음)
+    if (isDeductibleLeaveType(leaveType)) {
+        if (leaveType === 'annual') {
+            const remainingAnnual = employee.annualLeave - employee.usedAnnual;
+            if (remainingAnnual < days) {
+                const shortage = days - remainingAnnual;
+                if (!confirm(`⚠️ 연차가 부족합니다!\n\n현재 잔여 연차: ${remainingAnnual.toFixed(1)}일\n사용하려는 일수: ${days}일\n부족한 일수: ${shortage.toFixed(1)}일\n\n선차감으로 처리하시겠습니까?\n(아직 생성되지 않은 연차를 미리 사용합니다)`)) {
+                    return;
+                }
             }
-        }
-        employee.usedAnnual += days;
-    } else {
-        const remainingMonthly = employee.monthlyLeave - employee.usedMonthly;
-        if (remainingMonthly < days) {
-            const shortage = days - remainingMonthly;
-            if (!confirm(`⚠️ 월차가 부족합니다!\n\n현재 잔여 월차: ${remainingMonthly.toFixed(1)}일\n사용하려는 일수: ${days}일\n부족한 일수: ${shortage.toFixed(1)}일\n\n선차감으로 처리하시겠습니까?\n(아직 생성되지 않은 월차를 미리 사용합니다)`)) {
-                return;
+            employee.usedAnnual += days;
+        } else {
+            const remainingMonthly = employee.monthlyLeave - employee.usedMonthly;
+            if (remainingMonthly < days) {
+                const shortage = days - remainingMonthly;
+                if (!confirm(`⚠️ 월차가 부족합니다!\n\n현재 잔여 월차: ${remainingMonthly.toFixed(1)}일\n사용하려는 일수: ${days}일\n부족한 일수: ${shortage.toFixed(1)}일\n\n선차감으로 처리하시겠습니까?\n(아직 생성되지 않은 월차를 미리 사용합니다)`)) {
+                    return;
+                }
             }
+            employee.usedMonthly += days;
         }
-        employee.usedMonthly += days;
     }
+    // 병가, 공가, 교육은 차감하지 않음
     
     // 각 날짜에 대해 휴가 기록 추가
     selectedDates.forEach((dateStr, index) => {
@@ -1443,10 +1480,13 @@ async function sendLeaveSlackNotification(employee, leaveType, days, dates, dura
             return;
         }
         
-        // 잔여 휴가 계산
-        const remainingLeave = leaveType === 'annual' 
-            ? (employee.annualLeave - employee.usedAnnual)
-            : (employee.monthlyLeave - employee.usedMonthly);
+        // 잔여 휴가 계산 (차감 대상만)
+        let remainingLeave = 0;
+        if (isDeductibleLeaveType(leaveType)) {
+            remainingLeave = leaveType === 'annual' 
+                ? (employee.annualLeave - employee.usedAnnual)
+                : (employee.monthlyLeave - employee.usedMonthly);
+        }
         
         // 알림 메시지 생성 및 발송
         const message = createLeaveNotificationMessage(employee, leaveType, days, remainingLeave, dates, duration);
@@ -1489,7 +1529,7 @@ function renderLeaveHistory() {
                     ${record.reason ? `- ${record.reason}` : ''}
                 </div>
             </div>
-            <span class="leave-item-type ${record.type}">${record.type === 'annual' ? '연차' : '월차'}</span>
+            <span class="leave-item-type ${record.type}">${getLeaveTypeText(record.type)}</span>
             <button class="cancel-leave" onclick="cancelLeave(${record.id})">취소</button>
         `;
         container.appendChild(item);
@@ -1835,7 +1875,7 @@ function showEmployeeDetail(employeeId) {
             if (leave.duration === 'morning') durationText = '오전반차';
             else if (leave.duration === 'afternoon') durationText = '오후반차';
             
-            const leaveTypeText = leave.type === 'annual' ? '연차' : '월차';
+            const leaveTypeText = getLeaveTypeText(leave.type);
             
             historyHTML += `
                 <div class="leave-history-item">
@@ -1896,13 +1936,13 @@ function showLeaveCancelModal(leaveId) {
     if (leave.duration === 'morning') durationText = '오전반차';
     else if (leave.duration === 'afternoon') durationText = '오후반차';
     
-    const leaveTypeText = leave.type === 'annual' ? '연차' : '월차';
+    const leaveTypeText = getLeaveTypeText(leave.type);
     
     info.innerHTML = `
         <h4>휴가 취소 확인</h4>
         <p><strong>직원:</strong> ${employee.name}</p>
         <p><strong>날짜:</strong> ${leave.startDate}</p>
-        <p><strong>종류:</strong> ${leaveTypeText} (${durationText})</p>
+        <p><strong>종류:</strong> ${leaveTypeText} (${durationText})${!isDeductibleLeaveType(leave.type) ? ' - 차감없음' : ''}</p>
         <p><strong>사유:</strong> ${leave.reason || '없음'}</p>
         <p style="margin-top: 15px; font-weight: bold;">이 휴가를 취소하시겠습니까?</p>
     `;
@@ -1963,18 +2003,22 @@ function openLeaveEditModal() {
 
     const leaveTypeSelect = document.getElementById('editLeaveType');
     if (yearsOfService < 1) {
-        // 1년 미만: 월차 + 휴가/병결
+        // 1년 미만: 월차 + 비차감 유형
         leaveTypeSelect.innerHTML = `
             <option value="monthly">월차</option>
+            <option value="sick">병가 (차감없음)</option>
+            <option value="official">공가 (차감없음)</option>
+            <option value="education">교육 (차감없음)</option>
             <option value="vacation">휴가 (차감없음)</option>
-            <option value="sick">병결 (차감없음)</option>
         `;
     } else {
-        // 1년 이상: 연차 + 휴가/병결
+        // 1년 이상: 연차 + 비차감 유형
         leaveTypeSelect.innerHTML = `
             <option value="annual">연차</option>
+            <option value="sick">병가 (차감없음)</option>
+            <option value="official">공가 (차감없음)</option>
+            <option value="education">교육 (차감없음)</option>
             <option value="vacation">휴가 (차감없음)</option>
-            <option value="sick">병결 (차감없음)</option>
         `;
     }
     leaveTypeSelect.value = leave.type;

@@ -259,6 +259,26 @@ h1 {
     color: #004085;
 }
 
+.leave-item.sick {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.leave-item.official {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.leave-item.education {
+    background: #e2d5f1;
+    color: #4a235a;
+}
+
+.leave-item.vacation {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
 .delete-employee {
     position: absolute;
     top: 8px;
@@ -389,6 +409,26 @@ h1 {
 .leave-indicator.monthly {
     background: #cce5ff;
     color: #004085;
+}
+
+.leave-indicator.sick {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.leave-indicator.official {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.leave-indicator.education {
+    background: #e2d5f1;
+    color: #4a235a;
+}
+
+.leave-indicator.vacation {
+    background: #d1ecf1;
+    color: #0c5460;
 }
 
 .calendar-day.holiday {
@@ -575,6 +615,26 @@ h1 {
 .leave-history-type.monthly {
     background: #cce5ff;
     color: #004085;
+}
+
+.leave-history-type.sick {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.leave-history-type.official {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.leave-history-type.education {
+    background: #e2d5f1;
+    color: #4a235a;
+}
+
+.leave-history-type.vacation {
+    background: #d1ecf1;
+    color: #0c5460;
 }
 
 /* 휴가 취소 모달 스타일 */
