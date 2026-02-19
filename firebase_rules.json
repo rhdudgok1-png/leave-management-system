@@ -15,6 +15,10 @@
     "overtimeRecords": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "apiKeys": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }
