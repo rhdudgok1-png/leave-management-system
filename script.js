@@ -3569,10 +3569,10 @@ function checkHRAccess() {
 
 // 탭 전환 함수
 function showTab(tabName) {
-    // HR 탭 접근 시 비밀번호 확인
-    if (tabName === 'hr') {
+    // HR/야근 탭 접근 시 비밀번호 확인
+    if (tabName === 'hr' || tabName === 'overtime') {
         if (!checkHRAccess()) {
-            return; // 인증 실패 시 탭 전환 중단
+            return;
         }
     }
     
