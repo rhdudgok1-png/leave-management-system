@@ -34,6 +34,7 @@
         <div class="tab-navigation">
             <button class="tab-button active" onclick="showTab('dashboard')">휴가/연차/월차</button>
             <button class="tab-button" onclick="showTab('overtime')">야근 관리</button>
+            <button class="tab-button" onclick="showTab('apikey')">API Key 관리</button>
             <button class="tab-button" onclick="event.stopPropagation(); showTab('hr')">HR 관리</button>
         </div>
 
@@ -161,6 +162,61 @@
                     <div class="overtime-summary-section">
                         <h3>직원별 야근 통계</h3>
                         <div class="overtime-summary" id="overtimeSummary"></div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- API Key 관리 탭 -->
+            <div id="apikeyTab" class="tab-content">
+                <section class="apikey-section">
+                    <h2>🔑 API Key 관리</h2>
+
+                    <!-- API Key 신청 폼 -->
+                    <div class="apikey-request-form">
+                        <h3>API Key 신청</h3>
+                        <div class="apikey-form-grid">
+                            <div class="form-group">
+                                <label>API 이름:</label>
+                                <input type="text" id="apikeyName" placeholder="예: OpenAI API, Google Maps API">
+                            </div>
+                            <div class="form-group">
+                                <label>사용 목적:</label>
+                                <input type="text" id="apikeyMemo" placeholder="예: GPT-4 챗봇 개발용">
+                            </div>
+                            <button class="btn-request-apikey" onclick="requestApiKey()">신청하기</button>
+                        </div>
+                    </div>
+
+                    <!-- 관리자 전용: API Key 직접 등록 -->
+                    <div class="apikey-admin-register" id="apikeyAdminRegister" style="display:none;">
+                        <h3>API Key 직접 등록 (관리자)</h3>
+                        <div class="apikey-form-grid">
+                            <div class="form-group">
+                                <label>API 이름:</label>
+                                <input type="text" id="adminApikeyName" placeholder="API 이름">
+                            </div>
+                            <div class="form-group">
+                                <label>API Key:</label>
+                                <input type="text" id="adminApikeyValue" placeholder="API Key 값 입력">
+                            </div>
+                            <div class="form-group">
+                                <label>결제 시작일:</label>
+                                <input type="date" id="adminApikeyBillingDate">
+                            </div>
+                            <div class="form-group">
+                                <label>메모:</label>
+                                <input type="text" id="adminApikeyMemo" placeholder="메모 (선택)">
+                            </div>
+                            <button class="btn-register-apikey" onclick="registerApiKeyDirect()">등록하기</button>
+                        </div>
+                    </div>
+
+                    <!-- API Key 목록 -->
+                    <div class="apikey-list-section">
+                        <h3>API Key 목록</h3>
+                        <div class="apikey-list" id="apikeyList">
+                            <p style="text-align:center; color:#666; padding:20px;">등록된 API Key가 없습니다.</p>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -403,6 +459,27 @@
                         <button onclick="closeLeaveEditModal()">취소</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Key 승인 모달 -->
+    <div class="modal-overlay" id="apikeyApproveModal" style="display:none;">
+        <div class="modal-content" style="max-width:500px;">
+            <h3>API Key 승인</h3>
+            <div id="apikeyApproveInfo"></div>
+            <div class="form-group">
+                <label>API Key 값:</label>
+                <input type="text" id="approveApikeyValue" placeholder="API Key 값을 입력하세요">
+            </div>
+            <div class="form-group">
+                <label>결제 시작일:</label>
+                <input type="date" id="approveApikeyBillingDate">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="confirmApproveApiKey()">승인</button>
+                <button onclick="rejectApiKey()">거절</button>
+                <button onclick="closeApikeyApproveModal()">닫기</button>
             </div>
         </div>
     </div>

@@ -2,6 +2,7 @@
 let employees = [];
 let leaveRecords = [];
 let overtimeRecords = [];
+let apiKeyRecords = [];
 let currentDate = new Date();
 let displayMonth = new Date();
 let overtimeDisplayMonth = new Date();
@@ -1721,10 +1722,11 @@ async function loadData() {
     // Firebase에서 보안 인증된 상태로 로드 시도
     if (isFirebaseEnabled && firebase.auth().currentUser) {
         try {
-            const [employeesSnapshot, recordsSnapshot, overtimeSnapshot] = await Promise.all([
+            const [employeesSnapshot, recordsSnapshot, overtimeSnapshot, apiKeySnapshot] = await Promise.all([
                 database.ref('employees').once('value'),
                 database.ref('leaveRecords').once('value'),
-                database.ref('overtimeRecords').once('value')
+                database.ref('overtimeRecords').once('value'),
+                database.ref('apiKeys').once('value')
             ]);
 
             const firebaseEmployees = employeesSnapshot.val();
@@ -1769,6 +1771,13 @@ async function loadData() {
                 overtimeRecords = Array.isArray(firebaseOvertimeRecords) ? firebaseOvertimeRecords :
                     Object.values(firebaseOvertimeRecords).filter(record => record && record.id);
                 console.log('Firebase에서 보안 인증된 상태로 야근 데이터 로드:', overtimeRecords.length + '개');
+            }
+
+            const firebaseApiKeys = apiKeySnapshot.val();
+            if (firebaseApiKeys) {
+                apiKeyRecords = Array.isArray(firebaseApiKeys) ? firebaseApiKeys :
+                    Object.values(firebaseApiKeys).filter(record => record && record.id);
+                console.log('Firebase에서 API Key 데이터 로드:', apiKeyRecords.length + '개');
             }
             
             // Firebase 데이터를 로컬에도 백업
@@ -2686,6 +2695,23 @@ function subscribeRealtimeData() {
             }
         }
     });
+
+    // API Key 데이터 실시간 반영
+    database.ref('apiKeys').on('value', (snap) => {
+        const data = snap.val();
+        if (data) {
+            try {
+                apiKeyRecords = Array.isArray(data) ? data : Object.values(data).filter(r => r && r.id);
+                renderApiKeyList();
+                console.log('🔥 API Key 데이터 실시간 업데이트:', apiKeyRecords.length + '개');
+            } catch (e) {
+                console.log('API Key 데이터 실시간 업데이트 실패:', e);
+            }
+        } else {
+            apiKeyRecords = [];
+            renderApiKeyList();
+        }
+    });
 }
 
 // Firebase 데이터 완전 정리
@@ -2962,9 +2988,10 @@ function unsubscribeRealtimeData() {
         try {
             database.ref('employees').off();
             database.ref('leaveRecords').off();
-            database.ref('overtimeRecords').off(); // 야근 리스너도 해제
+            database.ref('overtimeRecords').off();
+            database.ref('apiKeys').off();
             isRealtimeSubscribed = false;
-            console.log('실시간 구독 해제 완료 (employees, leaveRecords, overtimeRecords)');
+            console.log('실시간 구독 해제 완료 (employees, leaveRecords, overtimeRecords, apiKeys)');
         } catch (error) {
             console.log('구독 해제 실패:', error);
         }
@@ -3536,6 +3563,7 @@ function showTab(tabName) {
         const btnText = btn.textContent.trim();
         if (tabName === 'dashboard') return btnText.includes('휴가');
         if (tabName === 'overtime') return btnText.includes('야근');
+        if (tabName === 'apikey') return btnText.includes('API');
         if (tabName === 'hr') return btnText.includes('HR');
         return false;
     });
@@ -3557,12 +3585,14 @@ function showTab(tabName) {
         renderOvertimeCalendar();
         renderOvertimeList();
         renderOvertimeSummary();
+    } else if (tabName === 'apikey') {
+        document.getElementById('apikeyTab').classList.add('active');
+        renderApiKeyList();
+        setupApiKeyTabPermissions();
     } else if (tabName === 'hr') {
         document.getElementById('hrTab').classList.add('active');
-        // HR 탭으로 전환 시 HR 데이터 로드
         updateHREmployeeDropdown();
         renderHREmployeeList();
-        // Slack 설정 UI 초기화
         initSlackSettingsUI();
     }
 }
@@ -4491,4 +4521,423 @@ function exportOvertimeToExcel() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+// ===== API Key 관리 기능 =====
+
+// API Key 탭 권한 설정
+function setupApiKeyTabPermissions() {
+    const adminRegister = document.getElementById('apikeyAdminRegister');
+    if (adminRegister) {
+        adminRegister.style.display = checkPermission('manager') ? 'block' : 'none';
+    }
+}
+
+// Firebase에 API Key 저장
+async function saveApiKeyRecord(record) {
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        try {
+            await database.ref('apiKeys/' + record.id).set(record);
+        } catch (error) {
+            console.error('API Key 저장 실패:', error);
+        }
+    }
+}
+
+// Firebase에서 API Key 삭제
+async function deleteApiKeyFromFirebase(recordId) {
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        try {
+            await database.ref('apiKeys/' + recordId).remove();
+        } catch (error) {
+            console.error('API Key 삭제 실패:', error);
+        }
+    }
+}
+
+// API Key 신청
+async function requestApiKey() {
+    const name = document.getElementById('apikeyName').value.trim();
+    const memo = document.getElementById('apikeyMemo').value.trim();
+
+    if (!name) {
+        alert('API 이름을 입력해주세요.');
+        return;
+    }
+
+    const userName = sessionStorage.getItem('userName') || localStorage.getItem('userName') || '알 수 없음';
+
+    const record = {
+        id: `apikey_${Date.now()}`,
+        name: name,
+        apiKey: null,
+        requester: userName,
+        requestDate: new Date().toISOString().split('T')[0],
+        status: 'pending',
+        approver: null,
+        approveDate: null,
+        billingStartDate: null,
+        memo: memo
+    };
+
+    apiKeyRecords.push(record);
+    await saveApiKeyRecord(record);
+    renderApiKeyList();
+
+    document.getElementById('apikeyName').value = '';
+    document.getElementById('apikeyMemo').value = '';
+
+    showToast('success', 'API Key 신청 완료', `${name} API Key 신청이 접수되었습니다.`);
+
+    sendApiKeySlackNotification('request', record);
+}
+
+// 관리자 직접 등록
+async function registerApiKeyDirect() {
+    if (!checkPermission('manager')) {
+        showNoPermissionAlert('API Key 등록');
+        return;
+    }
+
+    const name = document.getElementById('adminApikeyName').value.trim();
+    const keyValue = document.getElementById('adminApikeyValue').value.trim();
+    const billingDate = document.getElementById('adminApikeyBillingDate').value;
+    const memo = document.getElementById('adminApikeyMemo').value.trim();
+
+    if (!name || !keyValue) {
+        alert('API 이름과 Key 값을 입력해주세요.');
+        return;
+    }
+
+    const userName = sessionStorage.getItem('userName') || localStorage.getItem('userName') || '알 수 없음';
+
+    const encryptedKey = await aesEncrypt(keyValue);
+    if (!encryptedKey) {
+        alert('API Key 암호화에 실패했습니다. 다시 시도해주세요.');
+        return;
+    }
+
+    const record = {
+        id: `apikey_${Date.now()}`,
+        name: name,
+        apiKey: encryptedKey,
+        requester: userName,
+        requestDate: new Date().toISOString().split('T')[0],
+        status: 'approved',
+        approver: userName,
+        approveDate: new Date().toISOString().split('T')[0],
+        billingStartDate: billingDate || null,
+        memo: memo
+    };
+
+    apiKeyRecords.push(record);
+    await saveApiKeyRecord(record);
+    renderApiKeyList();
+
+    document.getElementById('adminApikeyName').value = '';
+    document.getElementById('adminApikeyValue').value = '';
+    document.getElementById('adminApikeyBillingDate').value = '';
+    document.getElementById('adminApikeyMemo').value = '';
+
+    showToast('success', 'API Key 등록 완료', `${name} API Key가 등록되었습니다.`);
+}
+
+// 승인 모달 열기
+function openApikeyApproveModal(recordId) {
+    if (!checkPermission('manager')) {
+        showNoPermissionAlert('API Key 승인');
+        return;
+    }
+
+    const record = apiKeyRecords.find(r => r.id === recordId);
+    if (!record) return;
+
+    const modal = document.getElementById('apikeyApproveModal');
+    const info = document.getElementById('apikeyApproveInfo');
+
+    info.innerHTML = `
+        <p><strong>API 이름:</strong> ${record.name}</p>
+        <p><strong>신청자:</strong> ${record.requester}</p>
+        <p><strong>신청일:</strong> ${record.requestDate}</p>
+        <p><strong>메모:</strong> ${record.memo || '없음'}</p>
+    `;
+
+    document.getElementById('approveApikeyValue').value = '';
+    document.getElementById('approveApikeyBillingDate').value = '';
+
+    modal.dataset.recordId = recordId;
+    modal.style.cssText = 'display: block !important; z-index: 10000 !important;';
+}
+
+function closeApikeyApproveModal() {
+    const modal = document.getElementById('apikeyApproveModal');
+    modal.style.display = 'none';
+    delete modal.dataset.recordId;
+}
+
+// API Key 승인 확인
+async function confirmApproveApiKey() {
+    const modal = document.getElementById('apikeyApproveModal');
+    const recordId = modal.dataset.recordId;
+    if (!recordId) return;
+
+    const keyValue = document.getElementById('approveApikeyValue').value.trim();
+    const billingDate = document.getElementById('approveApikeyBillingDate').value;
+
+    if (!keyValue) {
+        alert('API Key 값을 입력해주세요.');
+        return;
+    }
+
+    const record = apiKeyRecords.find(r => r.id === recordId);
+    if (!record) return;
+
+    const encryptedKey = await aesEncrypt(keyValue);
+    if (!encryptedKey) {
+        alert('API Key 암호화에 실패했습니다. 다시 시도해주세요.');
+        return;
+    }
+
+    const userName = sessionStorage.getItem('userName') || localStorage.getItem('userName') || '알 수 없음';
+
+    record.apiKey = encryptedKey;
+    record.status = 'approved';
+    record.approver = userName;
+    record.approveDate = new Date().toISOString().split('T')[0];
+    record.billingStartDate = billingDate || null;
+
+    await saveApiKeyRecord(record);
+    renderApiKeyList();
+    closeApikeyApproveModal();
+
+    showToast('success', 'API Key 승인', `${record.name} API Key가 승인되었습니다.`);
+
+    sendApiKeySlackNotification('approve', record);
+}
+
+// API Key 거절
+async function rejectApiKey() {
+    const modal = document.getElementById('apikeyApproveModal');
+    const recordId = modal.dataset.recordId;
+    if (!recordId) return;
+
+    if (!confirm('이 API Key 신청을 거절하시겠습니까?')) return;
+
+    const record = apiKeyRecords.find(r => r.id === recordId);
+    if (!record) return;
+
+    const userName = sessionStorage.getItem('userName') || localStorage.getItem('userName') || '알 수 없음';
+
+    record.status = 'rejected';
+    record.approver = userName;
+    record.approveDate = new Date().toISOString().split('T')[0];
+
+    await saveApiKeyRecord(record);
+    renderApiKeyList();
+    closeApikeyApproveModal();
+
+    showToast('info', 'API Key 거절', `${record.name} API Key 신청이 거절되었습니다.`);
+
+    sendApiKeySlackNotification('reject', record);
+}
+
+// API Key 삭제
+async function deleteApiKey(recordId) {
+    if (!checkPermission('admin')) {
+        showNoPermissionAlert('API Key 삭제');
+        return;
+    }
+
+    const record = apiKeyRecords.find(r => r.id === recordId);
+    if (!record) return;
+
+    if (!confirm(`"${record.name}" API Key를 삭제하시겠습니까?`)) return;
+
+    apiKeyRecords = apiKeyRecords.filter(r => r.id !== recordId);
+    await deleteApiKeyFromFirebase(recordId);
+    renderApiKeyList();
+
+    showToast('success', 'API Key 삭제', `${record.name} API Key가 삭제되었습니다.`);
+}
+
+// API Key 마스킹 (앞 4자리 + **** + 뒤 4자리)
+function maskApiKey(keyStr) {
+    if (!keyStr || keyStr.length < 10) return '****';
+    return keyStr.substring(0, 4) + '••••••••' + keyStr.substring(keyStr.length - 4);
+}
+
+// API Key 보기 (복호화 후 표시)
+async function toggleApiKeyVisibility(recordId) {
+    const record = apiKeyRecords.find(r => r.id === recordId);
+    if (!record || !record.apiKey) return;
+
+    const keyEl = document.getElementById(`apikey-value-${recordId}`);
+    const btnEl = document.getElementById(`apikey-toggle-${recordId}`);
+
+    if (keyEl.dataset.revealed === 'true') {
+        keyEl.textContent = maskApiKey(keyEl.dataset.plainKey);
+        keyEl.dataset.revealed = 'false';
+        btnEl.textContent = '보기';
+    } else {
+        try {
+            const decrypted = await aesDecrypt(record.apiKey);
+            if (decrypted) {
+                keyEl.textContent = decrypted;
+                keyEl.dataset.plainKey = decrypted;
+                keyEl.dataset.revealed = 'true';
+                btnEl.textContent = '숨기기';
+            } else {
+                alert('API Key 복호화에 실패했습니다.');
+            }
+        } catch (error) {
+            console.error('API Key 복호화 오류:', error);
+            alert('API Key 복호화에 실패했습니다.');
+        }
+    }
+}
+
+// API Key 복사
+async function copyApiKey(recordId) {
+    const record = apiKeyRecords.find(r => r.id === recordId);
+    if (!record || !record.apiKey) return;
+
+    try {
+        const decrypted = await aesDecrypt(record.apiKey);
+        if (decrypted) {
+            await navigator.clipboard.writeText(decrypted);
+            showToast('success', '복사 완료', 'API Key가 클립보드에 복사되었습니다.');
+        } else {
+            alert('API Key 복호화에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('API Key 복사 오류:', error);
+        alert('API Key 복사에 실패했습니다.');
+    }
+}
+
+// API Key 목록 렌더링
+function renderApiKeyList() {
+    const container = document.getElementById('apikeyList');
+    if (!container) return;
+
+    if (apiKeyRecords.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#666; padding:20px;">등록된 API Key가 없습니다.</p>';
+        return;
+    }
+
+    const isManager = checkPermission('manager');
+    const isAdmin = checkPermission('admin');
+
+    const sortedRecords = [...apiKeyRecords].sort((a, b) => {
+        const statusOrder = { 'pending': 0, 'approved': 1, 'rejected': 2 };
+        const orderA = statusOrder[a.status] ?? 9;
+        const orderB = statusOrder[b.status] ?? 9;
+        if (orderA !== orderB) return orderA - orderB;
+        return new Date(b.requestDate) - new Date(a.requestDate);
+    });
+
+    let html = '';
+    sortedRecords.forEach(record => {
+        const statusBadge = getStatusBadge(record.status);
+        const hasKey = record.apiKey && record.status === 'approved';
+
+        html += `
+            <div class="apikey-card ${record.status}">
+                <div class="apikey-card-header">
+                    <div class="apikey-card-title">${record.name}</div>
+                    ${statusBadge}
+                </div>
+                <div class="apikey-card-body">
+                    <div class="apikey-info-row">
+                        <span class="apikey-label">신청자:</span>
+                        <span>${record.requester}</span>
+                    </div>
+                    <div class="apikey-info-row">
+                        <span class="apikey-label">신청일:</span>
+                        <span>${record.requestDate}</span>
+                    </div>
+                    ${record.memo ? `<div class="apikey-info-row"><span class="apikey-label">메모:</span><span>${record.memo}</span></div>` : ''}
+                    ${record.billingStartDate ? `<div class="apikey-info-row"><span class="apikey-label">결제 시작일:</span><span>${record.billingStartDate}</span></div>` : ''}
+                    ${record.approver ? `<div class="apikey-info-row"><span class="apikey-label">${record.status === 'rejected' ? '거절자' : '승인자'}:</span><span>${record.approver} (${record.approveDate})</span></div>` : ''}
+                    ${hasKey ? `
+                        <div class="apikey-key-row">
+                            <span class="apikey-label">Key:</span>
+                            <code class="apikey-value" id="apikey-value-${record.id}" data-revealed="false">••••••••••••</code>
+                            <button class="btn-apikey-action" id="apikey-toggle-${record.id}" onclick="toggleApiKeyVisibility('${record.id}')">보기</button>
+                            <button class="btn-apikey-action btn-copy" onclick="copyApiKey('${record.id}')">복사</button>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="apikey-card-actions">
+                    ${record.status === 'pending' && isManager ? `<button class="btn-approve" onclick="openApikeyApproveModal('${record.id}')">승인/거절</button>` : ''}
+                    ${isAdmin ? `<button class="btn-delete-apikey" onclick="deleteApiKey('${record.id}')">삭제</button>` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// 상태 배지 생성
+function getStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="apikey-status-badge pending">대기중</span>',
+        'approved': '<span class="apikey-status-badge approved">승인됨</span>',
+        'rejected': '<span class="apikey-status-badge rejected">거절됨</span>'
+    };
+    return badges[status] || '';
+}
+
+// API Key Slack 알림 발송
+async function sendApiKeySlackNotification(action, record) {
+    if (!SLACK_CONFIG.enabled || !SLACK_CONFIG.botToken) return;
+
+    try {
+        const adminEmployees = employees.filter(emp => {
+            const hrData = emp.hrData || {};
+            return hrData.slackId && hrData.slackNotify !== false;
+        });
+
+        let message = '';
+        if (action === 'request') {
+            message = `🔑 *API Key 신청 알림*\n\n` +
+                      `👤 *신청자:* ${record.requester}\n` +
+                      `📋 *API 이름:* ${record.name}\n` +
+                      `📝 *메모:* ${record.memo || '없음'}\n` +
+                      `📅 *신청일:* ${record.requestDate}\n\n` +
+                      `API Key 관리 탭에서 승인해주세요.`;
+
+            for (const emp of adminEmployees) {
+                const userRole = emp.hrData?.role || 'user';
+                if (userRole === 'admin' || userRole === 'manager') {
+                    await sendSlackDM(emp.hrData.slackId, message);
+                }
+            }
+        } else if (action === 'approve') {
+            message = `✅ *API Key 승인 알림*\n\n` +
+                      `📋 *API 이름:* ${record.name}\n` +
+                      `👤 *승인자:* ${record.approver}\n` +
+                      `📅 *승인일:* ${record.approveDate}\n\n` +
+                      `API Key 관리 탭에서 확인하세요.`;
+
+            const requesterEmp = employees.find(emp => emp.name === record.requester);
+            if (requesterEmp?.hrData?.slackId) {
+                await sendSlackDM(requesterEmp.hrData.slackId, message);
+            }
+        } else if (action === 'reject') {
+            message = `❌ *API Key 거절 알림*\n\n` +
+                      `📋 *API 이름:* ${record.name}\n` +
+                      `👤 *처리자:* ${record.approver}\n` +
+                      `📅 *처리일:* ${record.approveDate}\n\n` +
+                      `필요시 관리자에게 문의하세요.`;
+
+            const requesterEmp = employees.find(emp => emp.name === record.requester);
+            if (requesterEmp?.hrData?.slackId) {
+                await sendSlackDM(requesterEmp.hrData.slackId, message);
+            }
+        }
+    } catch (error) {
+        console.error('API Key Slack 알림 발송 오류:', error);
+    }
 }

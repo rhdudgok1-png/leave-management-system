@@ -1780,3 +1780,280 @@ h1 {
     color: var(--text-muted);
     font-size: 14px;
 }
+
+/* ===== API Key 관리 탭 ===== */
+
+.apikey-section h2 {
+    margin-bottom: 20px;
+}
+
+.apikey-request-form,
+.apikey-admin-register {
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.apikey-request-form h3,
+.apikey-admin-register h3,
+.apikey-list-section h3 {
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: var(--text-color, #333);
+}
+
+.apikey-form-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.apikey-form-grid .form-group {
+    flex: 1;
+    min-width: 180px;
+}
+
+.apikey-form-grid .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: var(--text-color, #555);
+}
+
+.apikey-form-grid .form-group input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+    background: var(--input-bg, #fff);
+    color: var(--text-color, #333);
+}
+
+.btn-request-apikey,
+.btn-register-apikey {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    height: 38px;
+}
+
+.btn-request-apikey {
+    background: #4a90d9;
+    color: #fff;
+}
+
+.btn-request-apikey:hover {
+    background: #357abd;
+}
+
+.btn-register-apikey {
+    background: #28a745;
+    color: #fff;
+}
+
+.btn-register-apikey:hover {
+    background: #218838;
+}
+
+/* API Key 카드 목록 */
+
+.apikey-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.apikey-card {
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 10px;
+    padding: 16px;
+    transition: box-shadow 0.2s;
+}
+
+.apikey-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.apikey-card.pending {
+    border-left: 4px solid #ffc107;
+}
+
+.apikey-card.approved {
+    border-left: 4px solid #28a745;
+}
+
+.apikey-card.rejected {
+    border-left: 4px solid #dc3545;
+    opacity: 0.7;
+}
+
+.apikey-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.apikey-card-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--text-color, #333);
+}
+
+.apikey-status-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.apikey-status-badge.pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.apikey-status-badge.approved {
+    background: #d4edda;
+    color: #155724;
+}
+
+.apikey-status-badge.rejected {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.apikey-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.apikey-info-row {
+    display: flex;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-color, #555);
+}
+
+.apikey-label {
+    font-weight: bold;
+    min-width: 80px;
+    color: var(--text-color, #666);
+}
+
+.apikey-key-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 10px;
+    background: var(--code-bg, #f8f9fa);
+    border-radius: 6px;
+    flex-wrap: wrap;
+}
+
+.apikey-value {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    color: var(--text-color, #333);
+    word-break: break-all;
+    flex: 1;
+    min-width: 100px;
+}
+
+.btn-apikey-action {
+    padding: 4px 10px;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    background: var(--card-bg, #fff);
+    color: var(--text-color, #333);
+    white-space: nowrap;
+}
+
+.btn-apikey-action:hover {
+    background: #e9ecef;
+}
+
+.btn-apikey-action.btn-copy {
+    background: #4a90d9;
+    color: #fff;
+    border-color: #4a90d9;
+}
+
+.btn-apikey-action.btn-copy:hover {
+    background: #357abd;
+}
+
+.apikey-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    justify-content: flex-end;
+}
+
+.btn-approve {
+    padding: 6px 14px;
+    background: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-approve:hover {
+    background: #218838;
+}
+
+.btn-delete-apikey {
+    padding: 6px 14px;
+    background: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-delete-apikey:hover {
+    background: #c82333;
+}
+
+/* 모바일 대응 */
+@media (max-width: 768px) {
+    .apikey-form-grid {
+        flex-direction: column;
+    }
+
+    .apikey-form-grid .form-group {
+        min-width: 100%;
+    }
+
+    .apikey-key-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .apikey-card-actions {
+        flex-direction: column;
+    }
+
+    .apikey-card-actions button {
+        width: 100%;
+    }
+}
