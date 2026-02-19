@@ -929,6 +929,7 @@ h1 {
 /* 탭 콘텐츠: 기본적으로 숨김 */
 #dashboardTab:not(.active),
 #overtimeTab:not(.active),
+#apikeyTab:not(.active),
 #hrTab:not(.active) {
     display: none !important;
 }
@@ -939,6 +940,7 @@ h1 {
 }
 
 #overtimeTab.active,
+#apikeyTab.active,
 #hrTab.active {
     display: block !important;
 }
