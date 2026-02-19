@@ -4894,7 +4894,7 @@ async function sendApiKeySlackNotification(action, record) {
     if (!SLACK_CONFIG.enabled || !SLACK_CONFIG.botToken) return;
 
     try {
-        const adminEmployees = employees.filter(emp => {
+        const slackEnabledEmployees = employees.filter(emp => {
             const hrData = emp.hrData || {};
             return hrData.slackId && hrData.slackNotify !== false;
         });
@@ -4908,9 +4908,9 @@ async function sendApiKeySlackNotification(action, record) {
                       `📅 *신청일:* ${record.requestDate}\n\n` +
                       `API Key 관리 탭에서 승인해주세요.`;
 
-            for (const emp of adminEmployees) {
-                const userRole = emp.hrData?.role || 'user';
-                if (userRole === 'admin' || userRole === 'manager') {
+            // 신청자 본인을 제외한 Slack 활성화 직원들에게 알림 (관리자가 확인)
+            for (const emp of slackEnabledEmployees) {
+                if (emp.name !== record.requester) {
                     await sendSlackDM(emp.hrData.slackId, message);
                 }
             }
