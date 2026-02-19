@@ -18,8 +18,26 @@ const SLACK_CONFIG = {
     botToken: '', // Bot User OAuth Token (xoxb-로 시작)
 };
 
-// Slack 설정 로드
-function loadSlackConfig() {
+// Slack 설정 로드 (Firebase 우선, localStorage 폴백)
+async function loadSlackConfig() {
+    // Firebase에서 로드 시도
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        try {
+            const snapshot = await database.ref('slackConfig').once('value');
+            const config = snapshot.val();
+            if (config) {
+                SLACK_CONFIG.enabled = config.enabled || false;
+                SLACK_CONFIG.botToken = config.botToken || '';
+                // localStorage에도 동기화
+                localStorage.setItem('slackConfig', JSON.stringify(config));
+                console.log('Slack 설정 Firebase에서 로드 완료');
+                return;
+            }
+        } catch (error) {
+            console.log('Firebase Slack 설정 로드 실패, localStorage 사용:', error);
+        }
+    }
+    // localStorage 폴백
     const saved = localStorage.getItem('slackConfig');
     if (saved) {
         const config = JSON.parse(saved);
@@ -28,12 +46,22 @@ function loadSlackConfig() {
     }
 }
 
-// Slack 설정 저장
-function saveSlackConfig() {
-    localStorage.setItem('slackConfig', JSON.stringify({
+// Slack 설정 저장 (Firebase + localStorage 동시 저장)
+async function saveSlackConfig() {
+    const configData = {
         enabled: SLACK_CONFIG.enabled,
         botToken: SLACK_CONFIG.botToken
-    }));
+    };
+    localStorage.setItem('slackConfig', JSON.stringify(configData));
+    // Firebase에도 저장 (모든 브라우저에서 공유)
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        try {
+            await database.ref('slackConfig').set(configData);
+            console.log('Slack 설정 Firebase에 저장 완료');
+        } catch (error) {
+            console.error('Slack 설정 Firebase 저장 실패:', error);
+        }
+    }
 }
 
 // Slack DM 발송 함수 (CORS 우회: form-urlencoded 사용)
@@ -2756,8 +2784,8 @@ async function initializeApp() {
     // 저장된 테마 불러오기
     loadSavedTheme();
     
-    // Slack 설정 로드
-    loadSlackConfig();
+    // Slack 설정 로드 (Firebase에서 공유)
+    await loadSlackConfig();
     
     await loadData(); // Firebase에서 데이터 로드
     

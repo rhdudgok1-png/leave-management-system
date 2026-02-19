@@ -19,6 +19,10 @@
     "apiKeys": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "slackConfig": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }
