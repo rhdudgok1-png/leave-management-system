@@ -108,6 +108,7 @@ function getLeaveTypeText(type) {
         'sick': '병가',
         'official': '공가',
         'education': '교육',
+        'reward': '포상',
         'vacation': '휴가',
     };
     return typeMap[type] || type;
@@ -2046,6 +2047,7 @@ function openLeaveEditModal() {
             <option value="sick">병가 (차감없음)</option>
             <option value="official">공가 (차감없음)</option>
             <option value="education">교육 (차감없음)</option>
+            <option value="reward">포상 (차감없음)</option>
             <option value="vacation">휴가 (차감없음)</option>
         `;
     } else {
@@ -2055,6 +2057,7 @@ function openLeaveEditModal() {
             <option value="sick">병가 (차감없음)</option>
             <option value="official">공가 (차감없음)</option>
             <option value="education">교육 (차감없음)</option>
+            <option value="reward">포상 (차감없음)</option>
             <option value="vacation">휴가 (차감없음)</option>
         `;
     }

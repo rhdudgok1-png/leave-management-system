@@ -274,6 +274,11 @@ h1 {
     color: #4a235a;
 }
 
+.leave-item.reward {
+    background: #fff0d4;
+    color: #b8860b;
+}
+
 .leave-item.vacation {
     background: #d1ecf1;
     color: #0c5460;
@@ -424,6 +429,11 @@ h1 {
 .leave-indicator.education {
     background: #e2d5f1;
     color: #4a235a;
+}
+
+.leave-indicator.reward {
+    background: #fff0d4;
+    color: #b8860b;
 }
 
 .leave-indicator.vacation {
@@ -630,6 +640,11 @@ h1 {
 .leave-history-type.education {
     background: #e2d5f1;
     color: #4a235a;
+}
+
+.leave-history-type.reward {
+    background: #fff0d4;
+    color: #b8860b;
 }
 
 .leave-history-type.vacation {
