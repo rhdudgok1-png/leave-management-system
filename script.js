@@ -12,6 +12,42 @@ let isEditMode = false;
 let sortableInstance = null;
 let originalEmployeeOrder = [];
 
+// ===== Google Sheets 연동 =====
+const GOOGLE_SHEET_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzj2jVNgv9lH4vLAvsehmnpAR5KmKUyOXnVVGW5YClLFIaumi4cs6y2miF8gl3-pLNYjg/exec';
+
+async function sendToGoogleSheet(action, records) {
+    try {
+        const response = await fetch(GOOGLE_SHEET_WEBAPP_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, records })
+        });
+        console.log(`📊 구글시트 ${action} 완료`);
+    } catch (error) {
+        console.error('구글시트 연동 실패:', error);
+    }
+}
+
+function leaveRecordToSheetData(record) {
+    const emp = employees.find(e => e.id === record.employeeId);
+    if (!emp) return null;
+
+    let duration = '종일';
+    if (record.duration === 'morning') duration = '오전반차';
+    else if (record.duration === 'afternoon') duration = '오후반차';
+
+    return {
+        date: record.startDate || record.date || '',
+        name: emp.name,
+        type: getLeaveTypeText(record.type),
+        deducted: isDeductibleLeaveType(record.type) ? (record.days || 0) : 0,
+        duration: duration,
+        reason: record.reason || '',
+        recordId: record.id
+    };
+}
+
 // ===== Slack 알림 설정 =====
 const SLACK_CONFIG = {
     enabled: false, // Slack 알림 활성화 여부
@@ -1492,6 +1528,13 @@ function registerLeave() {
     
     // Slack 알림 발송 (비동기) - 날짜, 시간 정보 포함
     sendLeaveSlackNotification(employee, leaveType, days, leaveDates, leaveDuration);
+
+    // 구글시트 연동 (비동기)
+    const newRecords = leaveRecords.slice(-leaveDates.length);
+    const sheetData = newRecords.map(r => leaveRecordToSheetData(r)).filter(Boolean);
+    if (sheetData.length > 0) {
+        sendToGoogleSheet('add', sheetData);
+    }
 }
 
 // 휴가 등록 시 Slack 알림 발송
@@ -2211,6 +2254,9 @@ async function confirmCancelLeave() {
     }
     
     saveData();
+
+    // 구글시트에서도 삭제
+    sendToGoogleSheet('delete', [{ recordId: leave.id }]);
     
     // UI 업데이트
     renderEmployeeSummary();
@@ -5101,4 +5147,17 @@ function exportLeaveCSV() {
     document.body.removeChild(link);
 
     showToast('success', 'CSV 다운로드', `${filtered.length}건의 휴가 기록이 다운로드되었습니다.`);
+}
+
+// 구글시트 전체 동기화
+async function syncToGoogleSheet() {
+    if (!confirm('구글시트에 현재 모든 휴가 기록을 동기화합니다.\n기존 시트 데이터는 초기화됩니다.\n\n계속하시겠습니까?')) return;
+
+    const validRecords = leaveRecords
+        .filter(r => employees.find(e => e.id === r.employeeId))
+        .map(r => leaveRecordToSheetData(r))
+        .filter(Boolean);
+
+    await sendToGoogleSheet('sync', validRecords);
+    showToast('success', '구글시트 동기화', `${validRecords.length}건의 휴가 기록이 구글시트에 동기화되었습니다.`);
 }
