@@ -18,17 +18,14 @@ const GOOGLE_SHEET_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzj2jVN
 async function sendToGoogleSheet(action, records) {
     try {
         const payload = JSON.stringify({ action, records });
-        const response = await fetch(GOOGLE_SHEET_WEBAPP_URL, {
+        // Google Apps Script는 no-cors + form 방식으로 전송
+        await fetch(GOOGLE_SHEET_WEBAPP_URL, {
             method: 'POST',
-            body: payload,
-            redirect: 'follow'
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: payload
         });
-        if (response.ok) {
-            const result = await response.json();
-            console.log(`📊 구글시트 ${action} 완료:`, result.message);
-        } else {
-            console.warn(`📊 구글시트 응답 코드: ${response.status}`);
-        }
+        console.log(`📊 구글시트 ${action} 요청 완료`);
     } catch (error) {
         console.error('구글시트 연동 실패:', error);
     }
