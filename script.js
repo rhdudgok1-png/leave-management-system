@@ -5054,9 +5054,17 @@ function exportLeaveCSV() {
     // CSV 헤더
     let csvContent = '\uFEFF날짜,이름,종류,차감일수,시간구분,사유\n';
 
+    // 직원이 존재하지 않는 고아 데이터 제외
+    filtered = filtered.filter(record => employees.find(e => e.id === record.employeeId));
+
+    if (filtered.length === 0) {
+        alert('내보낼 휴가 기록이 없습니다.');
+        return;
+    }
+
     filtered.forEach(record => {
         const emp = employees.find(e => e.id === record.employeeId);
-        const name = emp ? emp.name : '알 수 없음';
+        const name = emp.name;
         const date = record.startDate || record.date || '';
         const type = getLeaveTypeText(record.type);
         const days = record.days || 0;
