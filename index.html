@@ -75,6 +75,26 @@
                     </div>
                     <div class="selected-info" id="selectedInfo">드래그하여 연속 날짜 선택 또는 클릭하여 단일 날짜 선택</div>
                     <div class="calendar" id="calendar"></div>
+
+                    <!-- 휴가 기록 다운로드 -->
+                    <div class="leave-export-section">
+                        <h3>📊 휴가 기록 내보내기</h3>
+                        <div class="export-controls">
+                            <div class="form-group">
+                                <label>직원:</label>
+                                <select id="exportEmployee">
+                                    <option value="all">전체 직원</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>기간:</label>
+                                <select id="exportMonth">
+                                    <option value="all">전체 기간</option>
+                                </select>
+                            </div>
+                            <button class="btn-export-csv" onclick="exportLeaveCSV()">CSV 다운로드</button>
+                        </div>
+                    </div>
                 </section>
             </div>
 

@@ -2828,6 +2828,7 @@ async function initializeApp() {
         }
     });
     
+    updateExportDropdowns();
     console.log('앱 초기화 완료!');
 }
 
@@ -3604,8 +3605,8 @@ function showTab(tabName) {
     
     if (tabName === 'dashboard') {
         document.getElementById('dashboardTab').classList.add('active');
-        // 대시보드 탭으로 전환 시 달력 다시 렌더링
         renderCalendar();
+        updateExportDropdowns();
     } else if (tabName === 'overtime') {
         const overtimeTab = document.getElementById('overtimeTab');
         if (overtimeTab) {
@@ -4973,4 +4974,123 @@ async function sendApiKeySlackNotification(action, record) {
     } catch (error) {
         console.error('API Key Slack 알림 발송 오류:', error);
     }
+}
+
+// ===== 휴가 기록 CSV 내보내기 =====
+
+// 내보내기 드롭다운 업데이트
+function updateExportDropdowns() {
+    // 직원 드롭다운
+    const empSelect = document.getElementById('exportEmployee');
+    if (!empSelect) return;
+
+    const currentVal = empSelect.value;
+    empSelect.innerHTML = '<option value="all">전체 직원</option>';
+    employees.forEach(emp => {
+        const option = document.createElement('option');
+        option.value = emp.id;
+        option.textContent = emp.name;
+        empSelect.appendChild(option);
+    });
+    empSelect.value = currentVal || 'all';
+
+    // 월별 드롭다운 (기록에서 존재하는 월만)
+    const monthSelect = document.getElementById('exportMonth');
+    if (!monthSelect) return;
+
+    const months = new Set();
+    leaveRecords.forEach(record => {
+        const date = record.startDate || record.date;
+        if (date) {
+            months.add(date.substring(0, 7)); // YYYY-MM
+        }
+    });
+
+    const sortedMonths = [...months].sort().reverse();
+    const currentMonthVal = monthSelect.value;
+    monthSelect.innerHTML = '<option value="all">전체 기간</option>';
+    sortedMonths.forEach(month => {
+        const [y, m] = month.split('-');
+        const option = document.createElement('option');
+        option.value = month;
+        option.textContent = `${y}년 ${parseInt(m)}월`;
+        monthSelect.appendChild(option);
+    });
+    monthSelect.value = currentMonthVal || 'all';
+}
+
+// CSV 다운로드
+function exportLeaveCSV() {
+    const employeeFilter = document.getElementById('exportEmployee').value;
+    const monthFilter = document.getElementById('exportMonth').value;
+
+    let filtered = [...leaveRecords];
+
+    // 직원 필터
+    if (employeeFilter !== 'all') {
+        filtered = filtered.filter(r => r.employeeId === parseInt(employeeFilter));
+    }
+
+    // 월 필터
+    if (monthFilter !== 'all') {
+        filtered = filtered.filter(r => {
+            const date = r.startDate || r.date;
+            return date && date.startsWith(monthFilter);
+        });
+    }
+
+    // 날짜순 정렬
+    filtered.sort((a, b) => {
+        const dateA = a.startDate || a.date || '';
+        const dateB = b.startDate || b.date || '';
+        return dateA.localeCompare(dateB);
+    });
+
+    if (filtered.length === 0) {
+        alert('내보낼 휴가 기록이 없습니다.');
+        return;
+    }
+
+    // CSV 헤더
+    let csvContent = '\uFEFF날짜,이름,종류,차감일수,시간구분,사유\n';
+
+    filtered.forEach(record => {
+        const emp = employees.find(e => e.id === record.employeeId);
+        const name = emp ? emp.name : '알 수 없음';
+        const date = record.startDate || record.date || '';
+        const type = getLeaveTypeText(record.type);
+        const days = record.days || 0;
+        const deducted = isDeductibleLeaveType(record.type) ? days : 0;
+
+        let duration = '종일';
+        if (record.duration === 'morning') duration = '오전반차';
+        else if (record.duration === 'afternoon') duration = '오후반차';
+
+        const reason = (record.reason || '').replace(/,/g, ' ');
+
+        csvContent += `${date},${name},${type},${deducted},${duration},${reason}\n`;
+    });
+
+    // 파일명 생성
+    let fileName = '휴가기록';
+    if (employeeFilter !== 'all') {
+        const emp = employees.find(e => e.id === parseInt(employeeFilter));
+        if (emp) fileName += `_${emp.name}`;
+    }
+    if (monthFilter !== 'all') {
+        fileName += `_${monthFilter}`;
+    }
+    fileName += '.csv';
+
+    // 다운로드
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast('success', 'CSV 다운로드', `${filtered.length}건의 휴가 기록이 다운로드되었습니다.`);
 }

@@ -1798,6 +1798,77 @@ h1 {
     font-size: 14px;
 }
 
+/* ===== 휴가 기록 내보내기 ===== */
+
+.leave-export-section {
+    margin-top: 20px;
+    padding: 18px;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 10px;
+}
+
+.leave-export-section h3 {
+    margin-bottom: 12px;
+    font-size: 15px;
+}
+
+.export-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.export-controls .form-group {
+    flex: 1;
+    min-width: 140px;
+}
+
+.export-controls .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: var(--text-color, #555);
+}
+
+.export-controls .form-group select {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 6px;
+    font-size: 13px;
+    background: var(--input-bg, #fff);
+    color: var(--text-color, #333);
+}
+
+.btn-export-csv {
+    padding: 8px 18px;
+    background: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    height: 36px;
+}
+
+.btn-export-csv:hover {
+    background: #218838;
+}
+
+@media (max-width: 768px) {
+    .export-controls {
+        flex-direction: column;
+    }
+    .export-controls .form-group {
+        min-width: 100%;
+    }
+}
+
 /* ===== API Key 관리 탭 ===== */
 
 .apikey-section h2 {
