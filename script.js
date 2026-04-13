@@ -18,13 +18,33 @@ const GOOGLE_SHEET_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzj2jVN
 async function sendToGoogleSheet(action, records) {
     try {
         const payload = JSON.stringify({ action, records });
-        // Google Apps Script는 no-cors + form 방식으로 전송
-        await fetch(GOOGLE_SHEET_WEBAPP_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: payload
-        });
+
+        // 숨겨진 iframe + form 방식으로 Google 인증 쿠키 자동 전송
+        let iframe = document.getElementById('gsheet-iframe');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'gsheet-iframe';
+            iframe.name = 'gsheet-iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = GOOGLE_SHEET_WEBAPP_URL;
+        form.target = 'gsheet-iframe';
+        form.style.display = 'none';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'payload';
+        input.value = payload;
+        form.appendChild(input);
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+
         console.log(`📊 구글시트 ${action} 요청 완료`);
     } catch (error) {
         console.error('구글시트 연동 실패:', error);
