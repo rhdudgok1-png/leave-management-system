@@ -2310,36 +2310,61 @@ function initializeFirebase() {
                         : (displayName || (uid ? uid.slice(0, 6) : 'user'));
                     
                     // Firebase authorized_users에서 이메일로 권한 확인
-                    let role = 'user'; // 기본값: 조회 전용
+                    let role = null; // null = 승인되지 않음 (기본값)
                     let authorizedUserName = safeName;
-                    
-                    if (email) {
+                    let authorized = false;
+                    let denyReason = '등록되지 않은 사용자입니다.';
+
+                    if (!email) {
+                        denyReason = '이메일 정보가 없는 계정은 로그인할 수 없습니다.';
+                    } else {
                         try {
                             const emailKey = email.toLowerCase().replace(/\./g, '_dot_').replace(/@/g, '_at_');
                             const userSnapshot = await database.ref(`authorized_users/${emailKey}`).once('value');
                             const authorizedUser = userSnapshot.val();
-                            
+
                             if (authorizedUser && authorizedUser.status === 'active') {
                                 // 만료일 확인
                                 const expiryDate = new Date(authorizedUser.expires);
                                 if (expiryDate > new Date()) {
                                     role = authorizedUser.role || 'user';
                                     authorizedUserName = authorizedUser.name || safeName;
+                                    authorized = true;
                                     console.log(`✅ 등록된 사용자 확인: ${email} -> ${role}`);
-                                    
+
                                     // 마지막 사용 시간 업데이트
                                     database.ref(`authorized_users/${emailKey}/lastUsed`).set(new Date().toISOString());
                                 } else {
+                                    denyReason = `사용 권한이 만료되었습니다. (만료일: ${authorizedUser.expires})`;
                                     console.log(`⚠️ 권한 만료됨: ${email}, 만료일: ${authorizedUser.expires}`);
                                 }
+                            } else if (authorizedUser && authorizedUser.status !== 'active') {
+                                denyReason = '사용 권한이 비활성화된 계정입니다.';
+                                console.log(`⚠️ 비활성 사용자: ${email}`);
                             } else {
-                                console.log(`ℹ️ 등록되지 않은 사용자: ${email} -> 조회 전용`);
+                                denyReason = `등록되지 않은 이메일입니다: ${email}`;
+                                console.log(`🚫 등록되지 않은 사용자 차단: ${email}`);
                             }
                         } catch (error) {
-                            console.log('권한 확인 실패, 기본 권한 사용:', error);
+                            denyReason = '권한 확인 중 오류가 발생했습니다. 네트워크를 확인하고 다시 시도해주세요.';
+                            console.log('권한 확인 실패:', error);
                         }
                     }
-                    
+
+                    // 승인되지 않은 사용자는 즉시 로그아웃
+                    if (!authorized) {
+                        console.warn(`🚫 승인되지 않은 로그인 시도 차단: ${email || '(이메일 없음)'}`);
+                        try {
+                            alert('로그인이 거부되었습니다.\n\n' + denyReason + '\n\n접근이 필요하시면 관리자에게 문의해주세요.');
+                        } catch (_) {}
+                        try {
+                            await auth.signOut();
+                        } catch (signOutErr) {
+                            console.log('로그아웃 실패:', signOutErr);
+                        }
+                        return;
+                    }
+
                     // 세션에 사용자 정보 저장
                     sessionStorage.setItem('userRole', role);
                     sessionStorage.setItem('userName', authorizedUserName);
