@@ -1860,6 +1860,23 @@ h1 {
     background: #218838;
 }
 
+.btn-import-csv {
+    padding: 8px 18px;
+    background: #0d6efd;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    height: 36px;
+}
+
+.btn-import-csv:hover {
+    background: #0b5ed7;
+}
+
 .btn-sync-sheet {
     padding: 8px 18px;
     background: #4285f4;

@@ -2672,6 +2672,12 @@ function setupUIPermissions() {
         }
     }
     
+    // 구글시트 동기화 버튼은 관리자만
+    const syncBtn = document.getElementById('btnSyncSheet');
+    if (syncBtn && checkPermission('admin')) {
+        syncBtn.style.display = '';
+    }
+
     // 사용자 정보 표시
     const header = document.querySelector('header h1');
     if (header && userName) {
@@ -2816,6 +2822,11 @@ function subscribeRealtimeData() {
 // Firebase 데이터 완전 정리
 async function cleanupFirebaseData() {
     if (!isFirebaseEnabled) return;
+
+    if (!employees.length && !leaveRecords.length) {
+        console.log('🧹 Firebase 정리 건너뜀: 직원/휴가 데이터가 비어 있어 삭제하면 복구 불가 손실만 발생합니다.');
+        return;
+    }
     
     try {
         console.log('🧹 Firebase 데이터 정리 시작...');
@@ -2860,10 +2871,12 @@ async function initializeApp() {
     
     await loadData(); // Firebase에서 데이터 로드
     
-    // 한 번만 데이터 정리 실행 (관리자만)
+    // 한 번만 데이터 정리 실행 (관리자만). 메모리가 비어 있을 때 실행하면 DB만 비워지므로 제외.
     const userRole = sessionStorage.getItem('userRole');
     if (userRole === 'admin' && !localStorage.getItem('dataCleanupDone')) {
-        await cleanupFirebaseData();
+        if (employees.length > 0 || leaveRecords.length > 0) {
+            await cleanupFirebaseData();
+        }
         localStorage.setItem('dataCleanupDone', 'true');
     }
     
@@ -2897,6 +2910,11 @@ async function initializeApp() {
     });
     
     updateExportDropdowns();
+    const leaveCsvInput = document.getElementById('leaveCsvImportInput');
+    if (leaveCsvInput && !leaveCsvInput.dataset.importBound) {
+        leaveCsvInput.dataset.importBound = '1';
+        leaveCsvInput.addEventListener('change', handleLeaveCsvImport);
+    }
     console.log('앱 초기화 완료!');
 }
 
@@ -5169,6 +5187,142 @@ function exportLeaveCSV() {
     document.body.removeChild(link);
 
     showToast('success', 'CSV 다운로드', `${filtered.length}건의 휴가 기록이 다운로드되었습니다.`);
+}
+
+function parseLeaveTypeKoToInternal(ko) {
+    const map = {
+        연차: 'annual',
+        월차: 'monthly',
+        병가: 'sick',
+        공가: 'official',
+        교육: 'education',
+        포상: 'reward',
+        휴가: 'vacation',
+    };
+    return map[(ko || '').trim()] || null;
+}
+
+function parseLeaveDurationKoToInternal(ko) {
+    const map = {
+        종일: 'full',
+        오전반차: 'morning',
+        오후반차: 'afternoon',
+    };
+    const v = map[(ko || '').trim()];
+    return v || 'full';
+}
+
+function triggerLeaveCsvImport() {
+    if (!checkPermission('manager')) {
+        showNoPermissionAlert('CSV 가져오기');
+        return;
+    }
+    const input = document.getElementById('leaveCsvImportInput');
+    if (input) {
+        input.value = '';
+        input.click();
+    }
+}
+
+async function handleLeaveCsvImport(event) {
+    const file = event.target && event.target.files && event.target.files[0];
+    if (!file) return;
+
+    if (!checkPermission('manager')) {
+        showNoPermissionAlert('CSV 가져오기');
+        return;
+    }
+
+    let text;
+    try {
+        text = await file.text();
+    } catch (e) {
+        alert('파일을 읽을 수 없습니다.');
+        return;
+    }
+
+    text = text.replace(/^\uFEFF/, '');
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) {
+        alert('CSV에 데이터 행이 없습니다.');
+        return;
+    }
+
+    const header = lines[0].replace(/^\uFEFF/, '');
+    if (!header.includes('날짜') || !header.includes('이름')) {
+        if (!confirm('첫 줄이 표준 헤더(날짜,이름,…)가 아닙니다. 그대로 파싱할까요?')) return;
+    }
+
+    const skipped = [];
+    let added = 0;
+    const baseId = Date.now();
+
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        const parts = line.split(',');
+        if (parts.length < 5) {
+            skipped.push(`행 ${i + 1}: 열 부족`);
+            continue;
+        }
+
+        const dateStr = parts[0].trim();
+        const name = parts[1].trim();
+        const typeKo = parts[2].trim();
+        const durationKo = parts[4].trim();
+        const reason = parts.slice(5).join(',').trim().slice(0, 50);
+
+        const leaveType = parseLeaveTypeKoToInternal(typeKo);
+        if (!leaveType) {
+            skipped.push(`행 ${i + 1}: 알 수 없는 종류 "${typeKo}"`);
+            continue;
+        }
+
+        const duration = parseLeaveDurationKoToInternal(durationKo);
+        const employee = employees.find(e => (e.name || '').trim() === name);
+        if (!employee) {
+            skipped.push(`행 ${i + 1}: 직원 없음 "${name}"`);
+            continue;
+        }
+
+        const days = duration === 'morning' || duration === 'afternoon' ? 0.5 : 1;
+        const id = `imp_${baseId}_${i}`;
+
+        leaveRecords.push({
+            id,
+            employeeId: employee.id,
+            type: leaveType,
+            duration,
+            startDate: dateStr,
+            endDate: dateStr,
+            days,
+            reason,
+            requestDate: new Date().toISOString(),
+        });
+        added++;
+    }
+
+    if (added === 0) {
+        alert('추가된 기록이 없습니다.\n\n' + (skipped.length ? skipped.slice(0, 15).join('\n') + (skipped.length > 15 ? '\n…' : '') : ''));
+        return;
+    }
+
+    employees.forEach(emp => {
+        clearLeaveCache();
+        calculateEmployeeLeaves(emp);
+    });
+
+    renderEmployeeSummary();
+    renderCalendar();
+    updateExportDropdowns();
+    await saveData();
+
+    let msg = `${added}건을 가져왔습니다.`;
+    if (skipped.length) {
+        msg += `\n\n건너뜀 ${skipped.length}건:\n` + skipped.slice(0, 20).join('\n');
+        if (skipped.length > 20) msg += '\n…';
+    }
+    showToast('success', 'CSV 가져오기', msg);
+    if (skipped.length) console.log('CSV 가져오기 건너뜀:', skipped);
 }
 
 // 구글시트 전체 동기화

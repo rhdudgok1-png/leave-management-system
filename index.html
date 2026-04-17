@@ -92,8 +92,10 @@
                                     <option value="all">전체 기간</option>
                                 </select>
                             </div>
+                            <input type="file" id="leaveCsvImportInput" accept=".csv,text/csv" style="display:none" aria-hidden="true">
+                            <button type="button" class="btn-import-csv" onclick="triggerLeaveCsvImport()">CSV 가져오기</button>
                             <button class="btn-export-csv" onclick="exportLeaveCSV()">CSV 다운로드</button>
-                            <button class="btn-sync-sheet" onclick="syncToGoogleSheet()">구글시트 동기화</button>
+                            <button class="btn-sync-sheet" id="btnSyncSheet" onclick="syncToGoogleSheet()" style="display:none;">구글시트 동기화</button>
                         </div>
                     </div>
                 </section>
