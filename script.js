@@ -2819,45 +2819,10 @@ function subscribeRealtimeData() {
     });
 }
 
-// Firebase 데이터 완전 정리
-async function cleanupFirebaseData() {
-    if (!isFirebaseEnabled) return;
-
-    if (!employees.length && !leaveRecords.length) {
-        console.log('🧹 Firebase 정리 건너뜀: 직원/휴가 데이터가 비어 있어 삭제하면 복구 불가 손실만 발생합니다.');
-        return;
-    }
-    
-    try {
-        console.log('🧹 Firebase 데이터 정리 시작...');
-        
-        // 기존 employees 노드 완전 삭제
-        await database.ref('employees').remove();
-        
-        // 기존 leaveRecords 노드 완전 삭제  
-        await database.ref('leaveRecords').remove();
-        
-        console.log('🧹 Firebase 데이터 정리 완료');
-        
-        // 현재 로컬 데이터를 깨끗하게 다시 저장
-        if (employees.length > 0) {
-            for (const employee of employees) {
-                await saveEmployee(employee);
-            }
-        }
-        
-        if (leaveRecords.length > 0) {
-            for (const record of leaveRecords) {
-                await saveLeaveRecord(record);
-            }
-        }
-        
-        console.log('🧹 깨끗한 데이터로 재저장 완료');
-        
-    } catch (error) {
-        console.log('Firebase 정리 실패:', error);
-    }
-}
+// [REMOVED 2026-04-17] cleanupFirebaseData 함수는 데이터 유실 사고의 근본 원인이었음.
+// 레이스 컨디션(메모리가 비어있는 상태에서 Firebase .remove() 실행) 으로 직원 12명이 삭제됨.
+// URL 변경 시 localStorage 플래그가 리셋되며 재발 가능성이 있어 함수 자체를 삭제함.
+// 데이터 정리가 필요하면 Firebase Console에서 직접 수행할 것.
 
 // 메인 앱 초기화 (Firebase 로그인 후 호출)
 async function initializeApp() {
@@ -2870,16 +2835,11 @@ async function initializeApp() {
     await loadSlackConfig();
     
     await loadData(); // Firebase에서 데이터 로드
-    
-    // 한 번만 데이터 정리 실행 (관리자만). 메모리가 비어 있을 때 실행하면 DB만 비워지므로 제외.
-    const userRole = sessionStorage.getItem('userRole');
-    if (userRole === 'admin' && !localStorage.getItem('dataCleanupDone')) {
-        if (employees.length > 0 || leaveRecords.length > 0) {
-            await cleanupFirebaseData();
-        }
-        localStorage.setItem('dataCleanupDone', 'true');
-    }
-    
+
+    // [REMOVED 2026-04-17] cleanupFirebaseData 호출부 제거. 해당 함수가 데이터 유실을 일으켰음.
+    // 안전을 위해 플래그는 true로 유지해 혹시라도 구버전 코드에서 재발하지 않도록 함.
+    localStorage.setItem('dataCleanupDone', 'true');
+
     updateCurrentTime();
     setInterval(updateCurrentTime, 1000);
     await renderCalendar(); // 공휴일 로드 포함
