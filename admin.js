@@ -201,16 +201,16 @@ async function initializeMasterToken() {
     }
     
     // 마스터 관리자 토큰 생성
-    const masterToken = 'MASTER-ADMIN-2025-INIT';
+    const masterToken = 'MASTER-ADMIN-2026-DYQ0TX-DIZ2K4';
     const tokenInfo = {
         name: '마스터 관리자',
         role: 'admin',
-        expires: '2026-12-31',
+        expires: '2027-12-31',
         created: new Date().toISOString(),
         lastUsed: null,
         status: 'active'
     };
-    
+
     tokenDatabase[masterToken] = tokenInfo;
     localStorage.setItem('tokenDatabase', JSON.stringify(tokenDatabase));
     
@@ -678,7 +678,7 @@ function generateTokensFile(activeTokens) {
 window.ACTIVE_TOKENS = ${JSON.stringify(activeTokens, null, 4)};
 
 // 마스터 관리자 토큰 (최초 설정용)
-window.MASTER_TOKEN = 'MASTER-ADMIN-2025-INIT';
+window.MASTER_TOKEN = 'MASTER-ADMIN-2026-DYQ0TX-DIZ2K4';
 if (!window.ACTIVE_TOKENS[window.MASTER_TOKEN]) {
     window.ACTIVE_TOKENS[window.MASTER_TOKEN] = {
         name: '마스터 관리자',
