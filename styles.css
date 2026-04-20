@@ -2402,19 +2402,74 @@ button:not(.tab-button):not(.theme-toggle):not(.close):not(.delete-btn):not(.cal
     border: 1px solid transparent;
 }
 
-/* 주요(primary) 버튼 — 검정 배경 */
-.add-employee, .edit-mode-btn, .edit-done-btn,
+/* 주요(primary) 버튼 — 검정 배경
+   주의: .add-employee 는 컨테이너 div, 실제 버튼은 .add-employee button 임 */
+.add-employee button, .leave-form button,
+.edit-mode-btn, .edit-done-btn,
 button[type="submit"],
 .btn-register-apikey, .btn-request-apikey {
     background: var(--text-primary) !important;
     color: var(--bg-card) !important;
     border: 1px solid var(--text-primary) !important;
     box-shadow: none !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 10px 16px !important;
+    border-radius: 8px !important;
+    transition: background 0.15s !important;
 }
-.add-employee:hover, button[type="submit"]:hover,
+.add-employee button:hover, .leave-form button:hover,
+.edit-mode-btn:hover, .edit-done-btn:hover,
+button[type="submit"]:hover,
 .btn-register-apikey:hover, .btn-request-apikey:hover {
     background: #000 !important;
     transform: none !important;
+}
+
+/* 직원 추가 컨테이너 내부 input 정리 */
+.add-employee {
+    background: transparent !important;
+    color: inherit !important;
+    border: none !important;
+}
+.add-employee input {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    padding: 10px 12px !important;
+    font-size: 13px !important;
+    color: var(--text-primary) !important;
+}
+.add-employee input::placeholder { color: var(--text-muted) !important; }
+.add-employee input:focus {
+    outline: none !important;
+    border-color: var(--accent-primary) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+}
+
+/* 삭제 X 버튼 (직원 카드 내부) */
+.delete-employee {
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 6px !important;
+    width: 26px !important;
+    height: 26px !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    font-weight: 400 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer;
+    transition: all 0.15s !important;
+    box-shadow: none !important;
+}
+.delete-employee:hover {
+    background: var(--danger-soft) !important;
+    color: var(--danger-color) !important;
+    border-color: var(--danger-color) !important;
 }
 
 /* 유틸/보조 버튼 */
