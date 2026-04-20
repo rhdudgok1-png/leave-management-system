@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>디자인 옵션 비교</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Pretendard', sans-serif;
+    background: #F4F4F5;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 8px; color: #18181B; letter-spacing: -0.02em; }
+  .subtitle { color: #71717A; margin-bottom: 32px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  .card {
+    display: block;
+    padding: 24px;
+    background: white;
+    border: 1px solid #E4E4E7;
+    border-radius: 12px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.15s;
+  }
+  .card:hover {
+    border-color: #18181B;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+  .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .card-title { font-size: 18px; font-weight: 700; color: #18181B; }
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 4px 10px;
+    border-radius: 20px; background: #F4F4F5; color: #52525B;
+  }
+  .card-desc { color: #52525B; font-size: 14px; line-height: 1.6; }
+  .preview-note { margin-top: 24px; padding: 16px; background: #FEF3C7; border-radius: 10px;
+    font-size: 13px; color: #854D0E; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>디자인 옵션 3가지 비교</h1>
+  <div class="subtitle">각 카드 클릭하면 실제 디자인 미리보기가 열립니다.</div>
+
+  <div class="grid">
+    <a href="./option-a-linear.html" class="card">
+      <div class="card-head">
+        <div class="card-title">A. Linear / Notion 미니멀</div>
+        <div class="badge">추천 · 업무용</div>
+      </div>
+      <div class="card-desc">
+        흰 배경 + 얇은 회색 선 + 단일 포인트 컬러. 그라데이션 없이 정보에 집중.
+        업무 관리 앱으로 가장 적합. 직원들이 매일 봐도 눈이 편함.
+      </div>
+    </a>
+
+    <a href="./option-b-soft.html" class="card">
+      <div class="card-head">
+        <div class="card-title">B. 모던 소프트 (글래스모피즘)</div>
+        <div class="badge">현재 스타일 업그레이드</div>
+      </div>
+      <div class="card-desc">
+        현재 보라색 테마 유지하되 유리 질감 + 부드러운 그라데이션으로 세련되게.
+        지금 디자인이랑 비슷해서 익숙하면서도 트렌디함.
+      </div>
+    </a>
+
+    <a href="./option-c-dark.html" class="card">
+      <div class="card-head">
+        <div class="card-title">C. 다크 대시보드</div>
+        <div class="badge">테크 · 모니터링용</div>
+      </div>
+      <div class="card-desc">
+        검은 배경 + 에메랄드 포인트. GitHub, Vercel 같은 개발자 툴 느낌.
+        눈 피로 적고 집중도 높음. 장시간 사용에 유리.
+      </div>
+    </a>
+  </div>
+
+  <div class="preview-note">
+    💡 각 미리보기는 <strong>실제 데이터</strong>를 기반으로 만들어졌어요 (직원 4명, 4월 휴가 기록 등). <br>
+    <strong>마음에 드는 게 있으면 말씀해주세요</strong> — 그 스타일로 실제 앱을 바꿔드릴게요.
+  </div>
+</div>
+</body>
+</html>

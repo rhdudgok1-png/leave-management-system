@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>옵션 B — 모던 소프트 (글래스모피즘)</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: linear-gradient(135deg, #EEF2FF 0%, #F3E8FF 50%, #FCE7F3 100%);
+    min-height: 100vh;
+    color: #1E1B4B;
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
+  .layout { max-width: 1440px; margin: 0 auto; padding: 28px; }
+
+  /* 헤더 */
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 18px 24px;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.08);
+  }
+  .topbar-title {
+    font-size: 16px; font-weight: 700;
+    background: linear-gradient(135deg, #6366F1 0%, #A855F7 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .topbar-title em { color: #64748B; font-style: normal; font-weight: 500; }
+  .topbar-meta { display: flex; gap: 10px; align-items: center; color: #64748B; font-size: 13px; }
+  .btn-ghost {
+    padding: 8px 14px; font-size: 13px; font-weight: 500;
+    background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 10px; color: #4338CA; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover { background: rgba(255, 255, 255, 0.9); }
+
+  /* 탭 */
+  .tabs {
+    display: flex; gap: 4px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(20px);
+    padding: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 16px;
+    margin-bottom: 20px;
+    width: fit-content;
+  }
+  .tab {
+    padding: 10px 18px; font-size: 13px; font-weight: 500;
+    color: #64748B; border-radius: 10px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+    color: #FFFFFF; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+
+  /* 그리드 */
+  .grid { display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
+
+  .card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.08);
+  }
+  .card-title {
+    font-size: 14px; font-weight: 700; color: #1E1B4B;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .card-sub { font-size: 12px; color: #94A3B8; font-weight: 400; }
+
+  /* 사이드바 */
+  .input {
+    width: 100%; padding: 12px 14px; font-size: 13px;
+    background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: 12px;
+    margin-bottom: 10px; color: #1E1B4B;
+    transition: all 0.2s;
+  }
+  .input:focus {
+    outline: none; border-color: #8B5CF6;
+    background: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+  }
+  .btn-primary {
+    width: 100%; padding: 12px; font-size: 13px; font-weight: 600;
+    background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+    color: #FFFFFF; border: none; border-radius: 12px;
+    cursor: pointer; margin-top: 4px;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    transition: all 0.2s;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4); }
+
+  .emp-list { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .emp-item {
+    padding: 14px; background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 14px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .emp-item:hover {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(139, 92, 246, 0.3);
+    transform: translateY(-1px);
+  }
+  .emp-name { font-size: 13px; font-weight: 700; color: #1E1B4B; }
+  .emp-sub { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+  .progress { margin-top: 10px; height: 6px; background: rgba(99, 102, 241, 0.1); border-radius: 3px; overflow: hidden; }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, #6366F1, #A855F7);
+    border-radius: 3px;
+  }
+  .emp-stat { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: #64748B; }
+
+  /* 달력 */
+  .cal-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .cal-title { font-size: 15px; font-weight: 700; color: #1E1B4B; }
+  .cal-nav-btns { display: flex; gap: 6px; align-items: center; }
+  .cal-btn {
+    width: 32px; height: 32px; padding: 0; border: 1px solid rgba(99, 102, 241, 0.15);
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 10px; cursor: pointer;
+    color: #4338CA; display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .cal-btn:hover { background: #FFFFFF; border-color: #8B5CF6; }
+
+  .cal-month-label { padding: 6px 14px; font-size: 13px; font-weight: 600; color: #1E1B4B; }
+  .cal-hint {
+    text-align: center; font-size: 12px; color: #64748B;
+    padding: 10px; margin-bottom: 10px;
+    background: rgba(99, 102, 241, 0.05); border-radius: 10px;
+  }
+
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  }
+  .cal-day-label {
+    padding: 8px; font-size: 11px; font-weight: 600;
+    color: #64748B; text-align: center;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+  }
+  .cal-day-label.sun { color: #EF4444; }
+  .cal-day-label.sat { color: #3B82F6; }
+  .cal-cell {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    padding: 8px; min-height: 80px; font-size: 12px;
+    display: flex; flex-direction: column; gap: 4px;
+    border-radius: 10px;
+    transition: all 0.15s;
+  }
+  .cal-cell:hover { background: rgba(255, 255, 255, 0.9); }
+  .cal-cell.other { background: rgba(255, 255, 255, 0.2); color: #CBD5E1; }
+  .cal-cell.today {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(168, 85, 247, 0.1));
+    border-color: rgba(139, 92, 246, 0.4);
+  }
+  .cal-num { font-size: 12px; font-weight: 600; color: #1E1B4B; }
+  .cal-cell.other .cal-num { color: #CBD5E1; }
+  .cal-badge {
+    font-size: 10px; padding: 3px 7px; border-radius: 6px;
+    font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cal-badge.annual { background: rgba(59, 130, 246, 0.15); color: #1E40AF; }
+  .cal-badge.monthly { background: rgba(245, 158, 11, 0.15); color: #92400E; }
+  .cal-badge.official { background: rgba(16, 185, 129, 0.15); color: #065F46; }
+  .cal-badge.reward { background: rgba(236, 72, 153, 0.15); color: #9F1239; }
+
+  /* 통계 */
+  .stat-row { display: flex; gap: 12px; margin-top: 18px; }
+  .stat {
+    flex: 1; padding: 14px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.3));
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 14px;
+  }
+  .stat-label { font-size: 11px; color: #64748B; margin-bottom: 4px; font-weight: 500; }
+  .stat-value { font-size: 20px; font-weight: 700;
+    background: linear-gradient(135deg, #6366F1, #A855F7);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .stat-value span { font-size: 12px; font-weight: 500; color: #64748B; margin-left: 4px;
+    -webkit-text-fill-color: #64748B;
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <div class="topbar">
+    <div class="topbar-title">휴가 관리 시스템 <em>— 서현령 (관리자)</em></div>
+    <div class="topbar-meta">
+      <span>2026. 04. 20. 오후 05:58</span>
+      <button class="btn-ghost">🌙</button>
+      <button class="btn-ghost">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active">휴가/연차/월차</div>
+    <div class="tab">야근 관리</div>
+    <div class="tab">API Key</div>
+    <div class="tab">HR</div>
+  </div>
+
+  <div class="grid">
+    <!-- 직원 관리 사이드바 -->
+    <div class="card">
+      <div class="card-title">
+        직원 관리
+        <button class="btn-ghost" style="padding:4px 10px;font-size:11px;">✏ 순서 편집</button>
+      </div>
+      <input class="input" placeholder="직원 이름">
+      <input class="input" type="date" value="2026-04-20">
+      <button class="btn-primary">＋ 직원 추가</button>
+
+      <div class="emp-list">
+        <div class="emp-item">
+          <div class="emp-name">김진아</div>
+          <div class="emp-sub">입사 2025-07-02 · 0년 9개월</div>
+          <div class="progress"><div class="progress-fill" style="width:72%;"></div></div>
+          <div class="emp-stat"><span>월차</span><span>7.5 / 9일</span></div>
+        </div>
+        <div class="emp-item">
+          <div class="emp-name">고준영</div>
+          <div class="emp-sub">입사 2022-10-10 · 3년 6개월</div>
+          <div class="progress"><div class="progress-fill" style="width:13%;"></div></div>
+          <div class="emp-stat"><span>연차</span><span>2.0 / 16일</span></div>
+        </div>
+        <div class="emp-item">
+          <div class="emp-name">서현령</div>
+          <div class="emp-sub">입사 2024-09-03 · 1년 7개월</div>
+          <div class="progress"><div class="progress-fill" style="width:80%;"></div></div>
+          <div class="emp-stat"><span>연차</span><span>12.0 / 15일</span></div>
+        </div>
+        <div class="emp-item">
+          <div class="emp-name">정민영</div>
+          <div class="emp-sub">입사 2025-10-13 · 0년 6개월</div>
+          <div class="progress"><div class="progress-fill" style="width:58%;"></div></div>
+          <div class="emp-stat"><span>월차</span><span>3.5 / 6일</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 달력 -->
+    <div class="card">
+      <div class="cal-nav">
+        <div>
+          <div class="cal-title">휴가 달력</div>
+          <div class="card-sub">날짜 클릭으로 휴가 등록</div>
+        </div>
+        <div class="cal-nav-btns">
+          <button class="cal-btn">◀</button>
+          <span class="cal-month-label">2026년 4월</span>
+          <button class="cal-btn">▶</button>
+        </div>
+      </div>
+
+      <div class="cal-hint">🖱 드래그하여 연속 날짜 선택 · 클릭하여 단일 날짜 선택</div>
+
+      <div class="cal-grid">
+        <div class="cal-day-label sun">일</div>
+        <div class="cal-day-label">월</div>
+        <div class="cal-day-label">화</div>
+        <div class="cal-day-label">수</div>
+        <div class="cal-day-label">목</div>
+        <div class="cal-day-label">금</div>
+        <div class="cal-day-label sat">토</div>
+
+        <div class="cal-cell other"><div class="cal-num">29</div></div>
+        <div class="cal-cell other"><div class="cal-num">30</div></div>
+        <div class="cal-cell other"><div class="cal-num">31</div></div>
+        <div class="cal-cell"><div class="cal-num">1</div><div class="cal-badge monthly">이환 오전</div></div>
+        <div class="cal-cell"><div class="cal-num">2</div><div class="cal-badge annual">서현령</div></div>
+        <div class="cal-cell"><div class="cal-num">3</div><div class="cal-badge monthly">이환</div><div class="cal-badge annual">서현령</div></div>
+        <div class="cal-cell"><div class="cal-num">4</div></div>
+
+        <div class="cal-cell"><div class="cal-num">5</div></div>
+        <div class="cal-cell"><div class="cal-num">6</div><div class="cal-badge monthly">김성훈</div></div>
+        <div class="cal-cell"><div class="cal-num">7</div><div class="cal-badge monthly">김소연</div></div>
+        <div class="cal-cell"><div class="cal-num">8</div></div>
+        <div class="cal-cell"><div class="cal-num">9</div></div>
+        <div class="cal-cell"><div class="cal-num">10</div></div>
+        <div class="cal-cell"><div class="cal-num">11</div></div>
+
+        <div class="cal-cell"><div class="cal-num">12</div></div>
+        <div class="cal-cell"><div class="cal-num">13</div></div>
+        <div class="cal-cell"><div class="cal-num">14</div><div class="cal-badge monthly">배지은</div></div>
+        <div class="cal-cell"><div class="cal-num">15</div><div class="cal-badge monthly">김진아</div><div class="cal-badge official">서현령</div></div>
+        <div class="cal-cell"><div class="cal-num">16</div><div class="cal-badge annual">정민영</div></div>
+        <div class="cal-cell"><div class="cal-num">17</div><div class="cal-badge monthly">김미영</div></div>
+        <div class="cal-cell"><div class="cal-num">18</div></div>
+
+        <div class="cal-cell"><div class="cal-num">19</div></div>
+        <div class="cal-cell today"><div class="cal-num">20</div><div class="cal-badge reward">김미영</div><div class="cal-badge monthly">김진아</div></div>
+        <div class="cal-cell"><div class="cal-num">21</div><div class="cal-badge reward">김미영</div><div class="cal-badge monthly">정민영</div></div>
+        <div class="cal-cell"><div class="cal-num">22</div><div class="cal-badge annual">정민영</div></div>
+        <div class="cal-cell"><div class="cal-num">23</div><div class="cal-badge annual">정민영</div></div>
+        <div class="cal-cell"><div class="cal-num">24</div></div>
+        <div class="cal-cell"><div class="cal-num">25</div></div>
+
+        <div class="cal-cell"><div class="cal-num">26</div></div>
+        <div class="cal-cell"><div class="cal-num">27</div></div>
+        <div class="cal-cell"><div class="cal-num">28</div></div>
+        <div class="cal-cell"><div class="cal-num">29</div><div class="cal-badge reward">김성훈</div></div>
+        <div class="cal-cell"><div class="cal-num">30</div><div class="cal-badge reward">김성훈</div><div class="cal-badge monthly">김진아</div></div>
+        <div class="cal-cell other"><div class="cal-num">1</div></div>
+        <div class="cal-cell other"><div class="cal-num">2</div></div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat">
+          <div class="stat-label">이번 달 휴가 건수</div>
+          <div class="stat-value">14<span>건</span></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">사용 일수</div>
+          <div class="stat-value">11.5<span>일</span></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">오늘 휴가 인원</div>
+          <div class="stat-value">2<span>명</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
