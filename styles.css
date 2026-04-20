@@ -2179,3 +2179,445 @@ h1 {
         width: 100%;
     }
 }
+
+/* ================================================================
+   [2026-04-20 Redesign] Linear / Notion 미니멀 스타일 오버라이드
+   기존 구조 유지하면서 시각적 요소만 현대적으로 교체
+   ================================================================ */
+
+/* 1. 컬러 토큰 재정의 */
+:root {
+    --bg-primary: #FAFAFA;
+    --bg-secondary: #F4F4F5;
+    --bg-card: #FFFFFF;
+    --text-primary: #18181B;
+    --text-secondary: #52525B;
+    --text-muted: #A1A1AA;
+    --border-color: #E4E4E7;
+    --border-strong: #D4D4D8;
+    --shadow-color: rgba(0, 0, 0, 0.04);
+    --accent-primary: #6366F1;
+    --accent-secondary: #4F46E5;
+    --accent-soft: #EEF2FF;
+    --success-color: #10B981;
+    --success-soft: #D1FAE5;
+    --warning-color: #F59E0B;
+    --warning-soft: #FEF3C7;
+    --danger-color: #EF4444;
+    --danger-soft: #FEE2E2;
+    --info-color: #3B82F6;
+    --info-soft: #DBEAFE;
+}
+
+[data-theme="dark"] {
+    --bg-primary: #09090B;
+    --bg-secondary: #18181B;
+    --bg-card: #18181B;
+    --text-primary: #FAFAFA;
+    --text-secondary: #D4D4D8;
+    --text-muted: #71717A;
+    --border-color: #27272A;
+    --border-strong: #3F3F46;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --accent-primary: #818CF8;
+    --accent-secondary: #6366F1;
+    --accent-soft: #1E1B4B;
+    --success-color: #34D399;
+    --success-soft: #064E3B;
+    --warning-color: #FBBF24;
+    --warning-soft: #78350F;
+    --danger-color: #F87171;
+    --danger-soft: #7F1D1D;
+    --info-color: #60A5FA;
+    --info-soft: #1E3A8A;
+}
+
+/* 2. Body / 기본 배경 */
+body {
+    background: var(--bg-primary) !important;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    min-height: 100vh;
+}
+
+/* 3. 컨테이너 — 그라데이션 배경 제거 */
+.container {
+    background: var(--bg-primary) !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: 1440px !important;
+    margin: 0 auto !important;
+    padding: 24px !important;
+}
+
+/* 4. 헤더 — 그라데이션 제거 */
+header {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color);
+    border-radius: 12px !important;
+    padding: 16px 22px !important;
+    box-shadow: none !important;
+    margin-bottom: 16px;
+}
+header h1 {
+    color: var(--text-primary) !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    text-shadow: none !important;
+}
+header .current-time {
+    color: var(--text-secondary) !important;
+    background: var(--bg-secondary) !important;
+    padding: 6px 12px !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    border: 1px solid var(--border-color);
+}
+.theme-toggle, #logoutBtn, header button {
+    background: var(--bg-secondary) !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    transition: all 0.15s !important;
+    box-shadow: none !important;
+}
+.theme-toggle:hover, #logoutBtn:hover, header button:hover {
+    background: var(--border-color) !important;
+    transform: none !important;
+}
+
+/* 5. 탭 버튼 — Notion 스타일 */
+.tab-navigation {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color);
+    border-radius: 12px !important;
+    padding: 6px !important;
+    display: inline-flex !important;
+    gap: 2px !important;
+    box-shadow: none !important;
+    margin-bottom: 16px !important;
+    width: fit-content !important;
+}
+.tab-button {
+    background: transparent !important;
+    color: var(--text-secondary) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    box-shadow: none !important;
+    transition: all 0.15s !important;
+}
+.tab-button:hover { background: var(--bg-secondary) !important; color: var(--text-primary) !important; }
+.tab-button.active {
+    background: var(--text-primary) !important;
+    color: var(--bg-card) !important;
+    box-shadow: none !important;
+}
+
+/* 6. 메인 컨텐츠 카드 */
+.main-content,
+.tab-content,
+.employee-section,
+.calendar-section,
+.overtime-section,
+.overtime-form-section,
+.overtime-list-section,
+.overtime-calendar-section,
+.overtime-summary-section,
+.hr-section,
+.hr-form-section,
+.hr-list-section,
+.apikey-section,
+.apikey-request-form,
+.apikey-admin-register,
+.apikey-list-section,
+.leave-export-section {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+    padding: 22px !important;
+}
+
+/* 7. 섹션 헤더 */
+.section-header, h2, h3 {
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 16px !important;
+}
+h2 { font-size: 16px !important; font-weight: 600 !important; }
+h3 { font-size: 14px !important; font-weight: 600 !important; }
+
+/* 8. 야근 관리 빨간 배너 → 심플하게 */
+.overtime-header {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    padding: 16px 20px !important;
+    box-shadow: none !important;
+}
+.overtime-header h2 { color: var(--text-primary) !important; border: none !important; }
+.overtime-stats {
+    color: var(--text-secondary) !important;
+}
+.overtime-stats .stat-value { color: var(--accent-primary) !important; font-weight: 700 !important; }
+
+/* 9. 입력 필드 */
+input[type="text"], input[type="date"], input[type="time"],
+input[type="email"], input[type="password"], input[type="number"],
+select, textarea {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    padding: 10px 12px !important;
+    font-size: 13px !important;
+    color: var(--text-primary) !important;
+    transition: all 0.15s !important;
+    font-family: inherit !important;
+}
+input:focus, select:focus, textarea:focus {
+    outline: none !important;
+    border-color: var(--accent-primary) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+}
+label { font-size: 13px !important; color: var(--text-secondary) !important; font-weight: 500 !important; }
+
+/* 10. 기본 버튼 */
+button:not(.tab-button):not(.theme-toggle):not(.close):not(.delete-btn):not(.cal-btn) {
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 9px 16px !important;
+    transition: all 0.15s !important;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+/* 주요(primary) 버튼 — 검정 배경 */
+.add-employee, .edit-mode-btn, .edit-done-btn,
+button[type="submit"],
+.btn-register-apikey, .btn-request-apikey {
+    background: var(--text-primary) !important;
+    color: var(--bg-card) !important;
+    border: 1px solid var(--text-primary) !important;
+    box-shadow: none !important;
+}
+.add-employee:hover, button[type="submit"]:hover,
+.btn-register-apikey:hover, .btn-request-apikey:hover {
+    background: #000 !important;
+    transform: none !important;
+}
+
+/* 유틸/보조 버튼 */
+.edit-cancel-btn, .btn-export-csv, .btn-import-csv, .btn-sync-sheet,
+.export-btn {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: none !important;
+}
+.edit-cancel-btn:hover, .btn-export-csv:hover, .btn-import-csv:hover,
+.btn-sync-sheet:hover, .export-btn:hover {
+    background: var(--bg-secondary) !important;
+    border-color: var(--border-strong) !important;
+    transform: none !important;
+}
+
+/* 삭제 버튼 */
+.delete-btn, .btn-delete-apikey {
+    background: transparent !important;
+    color: var(--danger-color) !important;
+    border: 1px solid var(--danger-soft) !important;
+    border-radius: 6px !important;
+    padding: 4px 10px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    box-shadow: none !important;
+}
+.delete-btn:hover, .btn-delete-apikey:hover {
+    background: var(--danger-soft) !important;
+}
+
+/* 11. 직원 카드 (employee-summary 안의 각 직원 항목) */
+.employee-summary {
+    border-radius: 10px !important;
+    border: 1px solid var(--border-color) !important;
+    background: var(--bg-card) !important;
+    box-shadow: none !important;
+    padding: 14px !important;
+    margin-bottom: 8px !important;
+    transition: all 0.15s !important;
+}
+.employee-summary:hover {
+    border-color: var(--border-strong) !important;
+    background: var(--bg-secondary) !important;
+}
+
+/* 12. 달력 */
+.calendar, .overtime-calendar {
+    border-radius: 10px !important;
+    border: 1px solid var(--border-color) !important;
+    overflow: hidden;
+    gap: 1px !important;
+    background: var(--border-color) !important;
+}
+.calendar > div, .overtime-calendar > div {
+    background: var(--bg-card) !important;
+}
+.calendar .day-header,
+.overtime-calendar .day-header {
+    background: var(--bg-secondary) !important;
+    color: var(--text-secondary) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px !important;
+}
+.calendar .day,
+.overtime-calendar .day {
+    background: var(--bg-card) !important;
+    padding: 8px !important;
+    min-height: 80px !important;
+    border: none !important;
+}
+.calendar .day:hover,
+.overtime-calendar .day:hover { background: var(--bg-secondary) !important; }
+.calendar .day.other-month,
+.overtime-calendar .day.other-month {
+    background: var(--bg-secondary) !important;
+    opacity: 0.5;
+}
+.calendar .day.today,
+.overtime-calendar .day.today {
+    background: var(--warning-soft) !important;
+    box-shadow: inset 0 0 0 1px var(--warning-color) !important;
+}
+.calendar .day.selected,
+.overtime-calendar .day.selected {
+    background: var(--accent-soft) !important;
+    box-shadow: inset 0 0 0 1px var(--accent-primary) !important;
+}
+
+/* 휴가 배지 */
+.calendar .leave-badge,
+.calendar .leave-item,
+.overtime-calendar .overtime-badge {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-weight: 500 !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+/* 13. 모달 */
+.modal, .modal-overlay {
+    background: rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(4px) !important;
+}
+.modal-content {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12) !important;
+    padding: 28px !important;
+}
+.modal-content h2, .modal-content h3 {
+    border: none !important;
+    padding-bottom: 0 !important;
+}
+.close {
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    border: none !important;
+    font-size: 20px !important;
+    line-height: 1 !important;
+}
+.close:hover { color: var(--text-primary) !important; }
+
+/* 14. 통계 카드 */
+.stat-item {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 10px !important;
+    padding: 14px !important;
+    box-shadow: none !important;
+}
+.stat-label {
+    color: var(--text-secondary) !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.stat-value {
+    color: var(--text-primary) !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+}
+
+/* 15. 달력 네비게이션(월 이동) */
+.month-selector, .calendar-controls {
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.month-selector button, .calendar-controls button {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    width: 32px !important; height: 32px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+}
+.month-selector button:hover, .calendar-controls button:hover {
+    background: var(--bg-secondary) !important;
+}
+
+/* 16. 선택 정보 표시 */
+.selected-info {
+    background: var(--accent-soft) !important;
+    color: var(--accent-secondary) !important;
+    border: 1px solid rgba(99, 102, 241, 0.2) !important;
+    border-radius: 10px !important;
+    padding: 12px !important;
+    font-size: 13px !important;
+}
+
+/* 17. 전체 폰트 가독성 */
+body, button, input, select, textarea {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+/* 18. 스크롤바 미니멀 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* 19. 토스트 알림 */
+.toast-container > div {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 20. 유지 — 본래 기능 보호 */
+.hidden { display: none !important; }
