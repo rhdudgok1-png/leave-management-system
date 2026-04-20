@@ -2678,6 +2678,161 @@ body, button, input, select, textarea {
 .hidden { display: none !important; }
 
 /* ================================================================
+   [2026-04-20 추가] 야근 관리 색상 정리
+   기존 빨강/주황/초록 컬러풀한 배지 → 미니멀 톤으로
+   ================================================================ */
+
+/* 야근 달력 */
+.overtime-calendar-section h3,
+.overtime-list-section h3 {
+    border-bottom: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+.overtime-day:hover { background: var(--bg-secondary) !important; transform: none !important; }
+.overtime-day.has-overtime {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--accent-primary) !important;
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.1) !important;
+}
+
+/* 야근 달력 배지 ("N명" / "X.Xh") */
+.overtime-count {
+    background: var(--accent-soft) !important;
+    color: var(--accent-primary) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    padding: 2px 7px !important;
+    border-radius: 5px !important;
+}
+.overtime-hours {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    padding: 2px 7px !important;
+    border-radius: 5px !important;
+}
+
+/* 야근 필터 바 */
+.overtime-filters {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+}
+.overtime-filters select {
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+}
+
+/* 엑셀 내보내기 버튼 */
+.export-btn {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 8px 14px !important;
+    box-shadow: none !important;
+    transition: background 0.15s !important;
+}
+.export-btn:hover {
+    background: var(--bg-secondary) !important;
+    transform: none !important;
+}
+
+/* 야근 기록 카드 */
+.overtime-item {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 10px !important;
+    padding: 16px !important;
+    transition: border-color 0.15s !important;
+    margin-bottom: 8px !important;
+}
+.overtime-item:hover {
+    background: var(--bg-card) !important;
+    border-color: var(--border-strong) !important;
+    transform: none !important;
+}
+.overtime-item-date {
+    color: var(--text-primary) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+}
+
+/* 직원 이름 뱃지 */
+.overtime-item-employee {
+    background: var(--accent-soft) !important;
+    color: var(--accent-primary) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    padding: 4px 10px !important;
+    border-radius: 6px !important;
+}
+
+/* 시간 뱃지 (0.7시간 등) */
+.overtime-duration {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    padding: 3px 10px !important;
+    border-radius: 6px !important;
+}
+.overtime-time {
+    color: var(--text-secondary) !important;
+    font-size: 13px !important;
+}
+
+/* 사유 박스 */
+.overtime-reason {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    font-style: normal !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+}
+
+/* 수정/삭제 버튼 */
+.btn-edit, .btn-delete {
+    border-radius: 8px !important;
+    padding: 7px 14px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid transparent !important;
+    cursor: pointer;
+    transition: all 0.15s !important;
+    box-shadow: none !important;
+}
+.btn-edit {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+}
+.btn-edit:hover {
+    background: var(--bg-secondary) !important;
+    border-color: var(--border-strong) !important;
+}
+.btn-delete {
+    background: transparent !important;
+    color: var(--danger-color) !important;
+    border-color: var(--danger-soft) !important;
+}
+.btn-delete:hover {
+    background: var(--danger-soft) !important;
+}
+
+/* ================================================================
    [2026-04-20] 커스텀 모달 (야근 상세 등)
    브라우저 기본 alert 대체용 예쁜 모달
    ================================================================ */
