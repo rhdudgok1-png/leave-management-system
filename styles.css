@@ -2676,3 +2676,188 @@ body, button, input, select, textarea {
 
 /* 20. 유지 — 본래 기능 보호 */
 .hidden { display: none !important; }
+
+/* ================================================================
+   [2026-04-20] 커스텀 모달 (야근 상세 등)
+   브라우저 기본 alert 대체용 예쁜 모달
+   ================================================================ */
+.custom-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    padding: 20px;
+}
+.custom-modal-overlay.open { opacity: 1; }
+.custom-modal-overlay.closing { opacity: 0; }
+
+.custom-modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    max-width: 480px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.96) translateY(8px);
+    transition: transform 0.15s ease;
+}
+.custom-modal-overlay.open .custom-modal { transform: scale(1) translateY(0); }
+
+.custom-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+.custom-modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+.custom-modal-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    font-weight: 500;
+}
+.custom-modal-close {
+    background: transparent !important;
+    border: none !important;
+    width: 28px !important;
+    height: 28px !important;
+    padding: 0 !important;
+    font-size: 20px !important;
+    line-height: 1 !important;
+    color: var(--text-muted) !important;
+    cursor: pointer;
+    border-radius: 6px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s !important;
+    box-shadow: none !important;
+}
+.custom-modal-close:hover {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+.custom-modal-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex: 1;
+    color: var(--text-primary);
+}
+
+.custom-modal-footer {
+    padding: 14px 24px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+.custom-modal-btn {
+    background: var(--text-primary) !important;
+    color: var(--bg-card) !important;
+    border: 1px solid var(--text-primary) !important;
+    border-radius: 8px !important;
+    padding: 8px 20px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+    transition: background 0.15s !important;
+    box-shadow: none !important;
+}
+.custom-modal-btn:hover { background: #000 !important; }
+
+/* 야근 상세 모달 전용 스타일 */
+.ot-modal-summary {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.ot-modal-stat {
+    flex: 1;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+.ot-modal-stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+.ot-modal-stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.ot-modal-stat-value span {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-left: 3px;
+}
+
+.ot-modal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ot-modal-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: border-color 0.15s;
+}
+.ot-modal-item:hover { border-color: var(--border-strong); }
+.ot-modal-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.ot-modal-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.ot-modal-hours {
+    background: var(--accent-soft);
+    color: var(--accent-primary);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+.ot-modal-time {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.ot-modal-reason {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border-color);
+}

@@ -4506,18 +4506,98 @@ function showOvertimeDetail(date) {
 
     if (dayRecords.length === 0) return;
 
-    let detailHTML = `<h3>${date} 야근 현황</h3>`;
-    dayRecords.forEach(record => {
-        detailHTML += `
-            <div class="overtime-detail-item">
-                <strong>${record.employeeName}</strong>:
-                ${record.startTime} ~ ${record.endTime} (${record.hours.toFixed(1)}시간)
-                ${record.reason ? `<br>사유: ${record.reason}` : ''}
+    // 날짜 파싱 (요일 포함 표시)
+    const d = new Date(date);
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const dateLabel = `${date} (${dayNames[d.getDay()]})`;
+
+    // 총 시간 / 인원 요약
+    const totalHours = dayRecords.reduce((sum, r) => sum + (r.hours || 0), 0);
+    const totalPeople = dayRecords.length;
+
+    // 기록 리스트 HTML
+    const itemsHTML = dayRecords.map(record => `
+        <div class="ot-modal-item">
+            <div class="ot-modal-item-head">
+                <div class="ot-modal-name">${record.employeeName}</div>
+                <div class="ot-modal-hours">${record.hours.toFixed(1)}시간</div>
             </div>
-        `;
+            <div class="ot-modal-time">🕐 ${record.startTime} ~ ${record.endTime}</div>
+            ${record.reason ? `<div class="ot-modal-reason">📝 ${record.reason}</div>` : ''}
+        </div>
+    `).join('');
+
+    // 커스텀 모달 생성
+    showCustomModal({
+        title: '🌙 야근 현황',
+        subtitle: dateLabel,
+        body: `
+            <div class="ot-modal-summary">
+                <div class="ot-modal-stat">
+                    <div class="ot-modal-stat-label">총 야근</div>
+                    <div class="ot-modal-stat-value">${totalHours.toFixed(1)}<span>시간</span></div>
+                </div>
+                <div class="ot-modal-stat">
+                    <div class="ot-modal-stat-label">인원</div>
+                    <div class="ot-modal-stat-value">${totalPeople}<span>명</span></div>
+                </div>
+            </div>
+            <div class="ot-modal-list">${itemsHTML}</div>
+        `
+    });
+}
+
+// 커스텀 모달 헬퍼 (재사용 가능)
+function showCustomModal({ title, subtitle, body, onClose }) {
+    // 기존 모달 제거
+    const existing = document.getElementById('__custom_modal__');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = '__custom_modal__';
+    overlay.className = 'custom-modal-overlay';
+    overlay.innerHTML = `
+        <div class="custom-modal">
+            <div class="custom-modal-header">
+                <div>
+                    <div class="custom-modal-title">${title || ''}</div>
+                    ${subtitle ? `<div class="custom-modal-subtitle">${subtitle}</div>` : ''}
+                </div>
+                <button class="custom-modal-close" aria-label="닫기">×</button>
+            </div>
+            <div class="custom-modal-body">${body || ''}</div>
+            <div class="custom-modal-footer">
+                <button class="custom-modal-btn">확인</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => {
+        overlay.classList.add('closing');
+        setTimeout(() => {
+            overlay.remove();
+            if (onClose) onClose();
+        }, 150);
+    };
+
+    overlay.querySelector('.custom-modal-close').addEventListener('click', close);
+    overlay.querySelector('.custom-modal-btn').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close();
     });
 
-    alert(detailHTML.replace(/<[^>]*>/g, '\n').replace(/\n+/g, '\n'));
+    // ESC 키로 닫기
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            close();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // 애니메이션용 클래스
+    requestAnimationFrame(() => overlay.classList.add('open'));
 }
 
 // 야근 기록 삭제
