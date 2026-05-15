@@ -7,6 +7,23 @@ let currentDate = new Date();
 let displayMonth = new Date();
 let overtimeDisplayMonth = new Date();
 
+// 진행 중인 Firebase 쓰기 카운터: 페이지 닫기 가드용
+// 0보다 크면 저장 중인 작업이 있다는 뜻
+let pendingWrites = 0;
+function bumpPendingWrites() { pendingWrites++; }
+function dropPendingWrites() { pendingWrites = Math.max(0, pendingWrites - 1); }
+
+// 페이지 닫기 시 진행 중 저장이 있으면 경고
+window.addEventListener('beforeunload', (e) => {
+    if (pendingWrites > 0) {
+        // 일부 브라우저는 커스텀 메시지를 무시하고 기본 경고만 띄움
+        const msg = '저장이 진행 중입니다. 지금 닫으면 일부 데이터가 유실될 수 있어요.';
+        e.preventDefault();
+        e.returnValue = msg;
+        return msg;
+    }
+});
+
 // 편집 모드 관련 변수
 let isEditMode = false;
 let sortableInstance = null;
@@ -1422,7 +1439,7 @@ function closeLeaveModal() {
 }
 
 // 휴가 등록
-function registerLeave() {
+async function registerLeave() {
     // 권한 체크: 매니저 이상만 휴가 등록 가능 (일반 직원은 조회만)
     if (!checkPermission('manager')) {
         showNoPermissionAlert('휴가 등록 (구두로 관리자에게 신청하세요)');
@@ -1497,6 +1514,8 @@ function registerLeave() {
     }
     
     // 차감 대상 휴가만 잔여 확인 (병가/공가/교육은 차감 없음)
+    // 차감 결정/적용은 저장 성공 후 롤백을 위해 변수로 추적
+    let deductedField = null; // 'annual' | 'monthly' | null
     if (isDeductibleLeaveType(leaveType)) {
         if (leaveType === 'annual') {
             const remainingAnnual = employee.annualLeave - employee.usedAnnual;
@@ -1507,6 +1526,7 @@ function registerLeave() {
                 }
             }
             employee.usedAnnual += days;
+            deductedField = 'annual';
         } else {
             const remainingMonthly = employee.monthlyLeave - employee.usedMonthly;
             if (remainingMonthly < days) {
@@ -1516,11 +1536,14 @@ function registerLeave() {
                 }
             }
             employee.usedMonthly += days;
+            deductedField = 'monthly';
         }
     }
     // 병가, 공가, 교육은 차감하지 않음
-    
-    // 각 날짜에 대해 휴가 기록 추가
+
+    // 새 기록 생성 (메모리). 실패 시 롤백을 위해 ID 별도 보관
+    const newRecords = [];
+    const newRecordIds = new Set();
     selectedDates.forEach((dateStr, index) => {
         const leaveRecord = {
             id: `${Date.now()}_${index}`, // Firebase 호환 ID (점 제거)
@@ -1534,25 +1557,61 @@ function registerLeave() {
             requestDate: new Date().toISOString()
         };
         leaveRecords.push(leaveRecord);
+        newRecords.push(leaveRecord);
+        newRecordIds.add(leaveRecord.id);
     });
-    
+
     // Slack 알림용 날짜 복사 (closeLeaveModal에서 selectedDates가 초기화되기 전에)
     const leaveDates = [...selectedDates];
-    
-    // 낙관적 업데이트: UI 먼저 즉시 반영
+
+    // 낙관적 업데이트: UI 먼저 즉시 반영 (실패 시 아래에서 롤백 후 재렌더)
     renderEmployeeSummary();
     renderCalendar();
-    showToast('success', '휴가 등록 완료', '휴가가 성공적으로 등록되었습니다.');
     closeLeaveModal();
-    
-    // 백그라운드로 Firebase 저장
-    saveData();
-    
-    // Slack 알림 발송 (비동기) - 날짜, 시간 정보 포함
+
+    // === 핵심 변경: 변경분만 await로 저장하고, 끝까지 보장 후 슬랙/시트/토스트 ===
+    let saveOk = true;
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        bumpPendingWrites();
+        try {
+            // 변경된 직원 1명만 저장 (잔여 휴가 차감 반영)
+            await saveEmployee(employee);
+            // 새로 생성된 휴가 기록만 저장
+            for (const r of newRecords) {
+                await saveLeaveRecord(r);
+            }
+        } catch (err) {
+            saveOk = false;
+            console.error('휴가 등록 저장 실패:', err);
+        } finally {
+            dropPendingWrites();
+        }
+    }
+
+    if (!saveOk) {
+        // 메모리 롤백: 차감 원복 + 새 기록 제거
+        if (deductedField === 'annual') employee.usedAnnual -= days;
+        else if (deductedField === 'monthly') employee.usedMonthly -= days;
+        leaveRecords = leaveRecords.filter(r => !newRecordIds.has(r.id));
+
+        renderEmployeeSummary();
+        renderCalendar();
+        showToast('error', '휴가 등록 실패', '저장에 실패했습니다. 네트워크를 확인하고 다시 시도해주세요.');
+        return;
+    }
+
+    // 로컬 백업도 갱신 (전체 saveData() 호출 없이 가볍게)
+    try {
+        localStorage.setItem('leaveRecords', JSON.stringify(leaveRecords));
+        localStorage.setItem('lastUpdate', Date.now().toString());
+    } catch (e) {
+        console.warn('로컬 백업 실패(무시):', e);
+    }
+
+    // 저장 성공 후에만 알림/시트/토스트
+    showToast('success', '휴가 등록 완료', '휴가가 성공적으로 등록되었습니다.');
     sendLeaveSlackNotification(employee, leaveType, days, leaveDates, leaveDuration);
 
-    // 구글시트 연동 (비동기)
-    const newRecords = leaveRecords.slice(-leaveDates.length);
     const sheetData = newRecords.map(r => leaveRecordToSheetData(r)).filter(Boolean);
     if (sheetData.length > 0) {
         sendToGoogleSheet('add', sheetData);
@@ -1678,24 +1737,24 @@ function updateStats() {
 }
 
 // 개별 직원 저장
+// 실패 시 호출자가 인지할 수 있도록 에러를 다시 throw 합니다 (기존 .catch 호출자도 그대로 동작)
 async function saveEmployee(employee) {
     if (isFirebaseEnabled) {
         try {
-            // sortOrder 포함하여 저장
             const employeeData = {
                 ...employee,
                 sortOrder: employee.sortOrder !== undefined ? employee.sortOrder : 999
             };
-            
-            // Firebase는 undefined 값을 허용하지 않으므로 null로 변환
-            const cleanedData = JSON.parse(JSON.stringify(employeeData, (key, value) => 
+
+            const cleanedData = JSON.parse(JSON.stringify(employeeData, (key, value) =>
                 value === undefined ? null : value
             ));
-            
+
             await database.ref(`employees/${employee.id}`).set(cleanedData);
             console.log('Firebase에 직원 저장 완료:', employee.name, 'sortOrder:', cleanedData.sortOrder);
         } catch (error) {
             console.log('Firebase 직원 저장 실패:', error);
+            throw error;
         }
     }
 }
@@ -1704,15 +1763,15 @@ async function saveEmployee(employee) {
 async function saveLeaveRecord(leaveRecord) {
     if (isFirebaseEnabled) {
         try {
-            // ID에 소수점이 있으면 변환
             let safeId = leaveRecord.id.toString().replace(/\./g, '_');
             await database.ref(`leaveRecords/${safeId}`).set({
                 ...leaveRecord,
-                id: safeId // 안전한 ID로 업데이트
+                id: safeId
             });
             console.log('Firebase에 휴가 기록 저장 완료:', safeId);
         } catch (error) {
             console.log('Firebase 휴가 저장 실패:', error);
+            throw error;
         }
     }
 }
@@ -1726,6 +1785,7 @@ async function deleteLeaveRecord(leaveId) {
             console.log('Firebase에서 휴가 기록 삭제 완료:', safeId);
         } catch (error) {
             console.log('Firebase 휴가 삭제 실패:', error);
+            throw error;
         }
     }
 }
@@ -2204,8 +2264,8 @@ async function saveLeaveEdit() {
     }
     // vacation과 sick은 차감하지 않음
 
-    // 휴가 기록 업데이트
-    leaveRecords[leaveIndex] = {
+    // 휴가 기록 업데이트 (메모리)
+    const updatedRecord = {
         ...oldLeave,
         type: newType,
         duration: newDuration,
@@ -2216,15 +2276,42 @@ async function saveLeaveEdit() {
         modifiedDate: new Date().toISOString(),
         modifiedBy: sessionStorage.getItem('userName') || '알 수 없음'
     };
+    leaveRecords[leaveIndex] = updatedRecord;
 
-    // Firebase에 즉시 저장
-    if (isFirebaseEnabled) {
-        await saveLeaveRecord(leaveRecords[leaveIndex]);
+    // Firebase에 변경분만 저장 (휴가 기록 1건 + 잔여 휴가 반영을 위한 직원 1명)
+    let saveOk = true;
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        bumpPendingWrites();
+        try {
+            await saveLeaveRecord(updatedRecord);
+            await saveEmployee(employee);
+        } catch (err) {
+            saveOk = false;
+            console.error('휴가 수정 저장 실패:', err);
+        } finally {
+            dropPendingWrites();
+        }
     }
 
-    saveData();
+    if (!saveOk) {
+        // 메모리 롤백: 차감/기록을 원복
+        if (newType === 'annual') employee.usedAnnual -= newDays;
+        else if (newType === 'monthly') employee.usedMonthly -= newDays;
+        if (oldLeave.type === 'annual') employee.usedAnnual += oldLeave.days;
+        else if (oldLeave.type === 'monthly') employee.usedMonthly += oldLeave.days;
+        leaveRecords[leaveIndex] = oldLeave;
 
-    // UI 업데이트
+        renderEmployeeSummary();
+        renderCalendar();
+        showToast('error', '휴가 수정 실패', '저장에 실패했습니다. 다시 시도해주세요.');
+        return;
+    }
+
+    try {
+        localStorage.setItem('leaveRecords', JSON.stringify(leaveRecords));
+        localStorage.setItem('lastUpdate', Date.now().toString());
+    } catch (e) { /* ignore */ }
+
     renderEmployeeSummary();
     renderCalendar();
 
@@ -2255,35 +2342,63 @@ async function confirmCancelLeave() {
         }
     }
     
+    // 차감 복구 (메모리). 실패 시 원복을 위해 적용 여부 추적
+    let restoredField = null;
+    let restoredAmount = 0;
     if (employee) {
-        // 휴가 복구
         if (leave.type === 'annual') {
-            employee.usedAnnual -= leave.days;
-            employee.usedAnnual = Math.max(0, employee.usedAnnual); // 음수 방지
-        } else {
-            employee.usedMonthly -= leave.days;
-            employee.usedMonthly = Math.max(0, employee.usedMonthly); // 음수 방지
+            restoredAmount = Math.min(leave.days, employee.usedAnnual);
+            employee.usedAnnual = Math.max(0, employee.usedAnnual - leave.days);
+            restoredField = 'annual';
+        } else if (leave.type === 'monthly') {
+            restoredAmount = Math.min(leave.days, employee.usedMonthly);
+            employee.usedMonthly = Math.max(0, employee.usedMonthly - leave.days);
+            restoredField = 'monthly';
         }
     }
-    
-    // 휴가 기록 삭제
-    leaveRecords.splice(leaveIndex, 1);
-    
-    // Firebase에서도 즉시 삭제
-    if (isFirebaseEnabled) {
-        const safeId = leave.id.toString().replace(/\./g, '_');
-        await deleteLeaveRecord(safeId);
-    }
-    
-    saveData();
 
-    // 구글시트에서도 삭제
+    // 휴가 기록 삭제 (메모리)
+    leaveRecords.splice(leaveIndex, 1);
+
+    // Firebase에서도 변경분만 즉시 적용 (휴가 1건 삭제 + 직원 1명 갱신)
+    let saveOk = true;
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        bumpPendingWrites();
+        try {
+            const safeId = leave.id.toString().replace(/\./g, '_');
+            await deleteLeaveRecord(safeId);
+            if (employee) await saveEmployee(employee);
+        } catch (err) {
+            saveOk = false;
+            console.error('휴가 취소 저장 실패:', err);
+        } finally {
+            dropPendingWrites();
+        }
+    }
+
+    if (!saveOk) {
+        // 메모리 롤백
+        leaveRecords.splice(leaveIndex, 0, leave);
+        if (employee && restoredField === 'annual') employee.usedAnnual += restoredAmount;
+        else if (employee && restoredField === 'monthly') employee.usedMonthly += restoredAmount;
+
+        renderEmployeeSummary();
+        renderCalendar();
+        showToast('error', '휴가 취소 실패', '저장에 실패했습니다. 다시 시도해주세요.');
+        closeLeaveCancelModal();
+        return;
+    }
+
+    try {
+        localStorage.setItem('leaveRecords', JSON.stringify(leaveRecords));
+        localStorage.setItem('lastUpdate', Date.now().toString());
+    } catch (e) { /* ignore */ }
+
     sendToGoogleSheet('delete', [{ recordId: leave.id }]);
-    
-    // UI 업데이트
+
     renderEmployeeSummary();
     renderCalendar();
-    
+
     alert('휴가가 취소되었습니다.');
     closeLeaveCancelModal();
 }
@@ -3872,16 +3987,44 @@ async function saveEmployeeHRData() {
         lastUpdated: new Date().toISOString()
     };
     
-    // 보안 강화된 Firebase + 로컬 백업으로 저장
-    await saveEmployee(employee);
-    saveData();
-    
-    // UI 업데이트
+    // 변경된 직원 1명만 Firebase에 저장 (전체 saveData 호출하지 않음)
+    let saveOk = true;
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        bumpPendingWrites();
+        try {
+            await saveEmployee(employee);
+        } catch (err) {
+            saveOk = false;
+            console.error('HR 정보 저장 실패:', err);
+        } finally {
+            dropPendingWrites();
+        }
+    }
+
+    if (!saveOk) {
+        showToast('error', 'HR 정보 저장 실패', '저장에 실패했습니다. 다시 시도해주세요.');
+        return;
+    }
+
+    try {
+        const sanitized = employees.map(emp => ({
+            ...emp,
+            hrData: emp.hrData ? {
+                ...emp.hrData,
+                phone: emp.hrData.phone ? '***숨김***' : '',
+                ssn: emp.hrData.ssn ? '***숨김***' : '',
+                address: emp.hrData.address ? '***숨김***' : ''
+            } : undefined
+        }));
+        localStorage.setItem('employees', JSON.stringify(sanitized));
+        localStorage.setItem('lastUpdate', Date.now().toString());
+    } catch (e) { /* ignore */ }
+
     renderEmployeeSummary();
     updateModalEmployeeDropdown();
     updateHREmployeeDropdown();
     renderHREmployeeList();
-    
+
     alert('직원 정보가 저장되었습니다.');
 }
 
@@ -4214,26 +4357,47 @@ async function addOvertimeRecord() {
 
     overtimeRecords.push(overtimeRecord);
 
-    // 낙관적 업데이트: UI 먼저 즉시 반영
-    // 폼 초기화
+    // 낙관적 UI 업데이트
     document.getElementById('overtimeDate').value = '';
     document.getElementById('overtimeEmployee').value = '';
     document.getElementById('overtimeStartTime').value = '18:00';
     document.getElementById('overtimeEndTime').value = '21:00';
     document.getElementById('overtimeReason').value = '';
 
-    // UI 업데이트
     renderOvertimeCalendar();
     renderOvertimeList();
     renderOvertimeSummary();
-    showToast('success', '야근 기록', '야근 기록이 추가되었습니다.');
 
-    // 백그라운드로 Firebase 저장
-    saveOvertimeRecord(overtimeRecord).catch(error => {
-        console.error('야근 기록 저장 실패:', error);
-        showErrorToast('야근 기록 저장에 실패했습니다.');
-    });
-    saveData();
+    // 변경분 1건만 await로 끝까지 보장
+    let saveOk = true;
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        bumpPendingWrites();
+        try {
+            await saveOvertimeRecord(overtimeRecord);
+        } catch (err) {
+            saveOk = false;
+            console.error('야근 기록 저장 실패:', err);
+        } finally {
+            dropPendingWrites();
+        }
+    }
+
+    if (!saveOk) {
+        // 메모리 롤백
+        overtimeRecords = overtimeRecords.filter(r => r.id !== overtimeRecord.id);
+        renderOvertimeCalendar();
+        renderOvertimeList();
+        renderOvertimeSummary();
+        showToast('error', '야근 기록 저장 실패', '저장에 실패했습니다. 다시 시도해주세요.');
+        return;
+    }
+
+    try {
+        localStorage.setItem('overtimeRecords', JSON.stringify(overtimeRecords));
+        localStorage.setItem('lastUpdate', Date.now().toString());
+    } catch (e) { /* ignore */ }
+
+    showToast('success', '야근 기록', '야근 기록이 추가되었습니다.');
 }
 
 // 야근 달력 렌더링
@@ -4609,14 +4773,40 @@ async function deleteOvertimeRecord(id) {
 
     if (!confirm('이 야근 기록을 삭제하시겠습니까?')) return;
 
-    overtimeRecords = overtimeRecords.filter(record => record.id !== id);
+    // 메모리에서 먼저 제거. 실패 시 복구하기 위해 원본 보관
+    const idx = overtimeRecords.findIndex(record => record.id === id);
+    if (idx === -1) return;
+    const removed = overtimeRecords[idx];
+    overtimeRecords.splice(idx, 1);
 
-    // Firebase에서 삭제
-    if (isFirebaseEnabled) {
-        await database.ref(`overtimeRecords/${id}`).remove();
+    // Firebase에서 1건만 삭제 (전체 saveData 호출하지 않음)
+    let saveOk = true;
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        bumpPendingWrites();
+        try {
+            await database.ref(`overtimeRecords/${id}`).remove();
+        } catch (err) {
+            saveOk = false;
+            console.error('야근 기록 삭제 실패:', err);
+        } finally {
+            dropPendingWrites();
+        }
     }
 
-    saveData();
+    if (!saveOk) {
+        overtimeRecords.splice(idx, 0, removed);
+        renderOvertimeCalendar();
+        renderOvertimeList();
+        renderOvertimeSummary();
+        showToast('error', '야근 기록 삭제 실패', '저장에 실패했습니다. 다시 시도해주세요.');
+        return;
+    }
+
+    try {
+        localStorage.setItem('overtimeRecords', JSON.stringify(overtimeRecords));
+        localStorage.setItem('lastUpdate', Date.now().toString());
+    } catch (e) { /* ignore */ }
+
     renderOvertimeCalendar();
     renderOvertimeList();
     renderOvertimeSummary();
@@ -4659,6 +4849,7 @@ async function saveOvertimeRecord(record) {
             console.log('Firebase에 야근 기록 저장 완료');
         } catch (error) {
             console.log('Firebase 야근 저장 실패:', error);
+            throw error;
         }
     }
 }
@@ -4723,6 +4914,7 @@ async function saveApiKeyRecord(record) {
             await database.ref('apiKeys/' + record.id).set(record);
         } catch (error) {
             console.error('API Key 저장 실패:', error);
+            throw error;
         }
     }
 }
@@ -4734,6 +4926,7 @@ async function deleteApiKeyFromFirebase(recordId) {
             await database.ref('apiKeys/' + recordId).remove();
         } catch (error) {
             console.error('API Key 삭제 실패:', error);
+            throw error;
         }
     }
 }
@@ -4764,7 +4957,19 @@ async function requestApiKey() {
     };
 
     apiKeyRecords.push(record);
-    await saveApiKeyRecord(record);
+
+    bumpPendingWrites();
+    try {
+        await saveApiKeyRecord(record);
+    } catch (err) {
+        apiKeyRecords = apiKeyRecords.filter(r => r.id !== record.id);
+        renderApiKeyList();
+        showToast('error', 'API Key 신청 실패', '저장에 실패했습니다. 다시 시도해주세요.');
+        dropPendingWrites();
+        return;
+    }
+    dropPendingWrites();
+
     renderApiKeyList();
 
     document.getElementById('apikeyName').value = '';
@@ -4814,7 +5019,19 @@ async function registerApiKeyDirect() {
     };
 
     apiKeyRecords.push(record);
-    await saveApiKeyRecord(record);
+
+    bumpPendingWrites();
+    try {
+        await saveApiKeyRecord(record);
+    } catch (err) {
+        apiKeyRecords = apiKeyRecords.filter(r => r.id !== record.id);
+        renderApiKeyList();
+        showToast('error', 'API Key 등록 실패', '저장에 실패했습니다. 다시 시도해주세요.');
+        dropPendingWrites();
+        return;
+    }
+    dropPendingWrites();
+
     renderApiKeyList();
 
     document.getElementById('adminApikeyName').value = '';
@@ -4883,13 +5100,27 @@ async function confirmApproveApiKey() {
 
     const userName = sessionStorage.getItem('userName') || localStorage.getItem('userName') || '알 수 없음';
 
+    // 실패 시 원복을 위한 백업
+    const backup = { ...record };
+
     record.apiKey = encryptedKey;
     record.status = 'approved';
     record.approver = userName;
     record.approveDate = new Date().toISOString().split('T')[0];
     record.billingStartDate = billingDate || null;
 
-    await saveApiKeyRecord(record);
+    bumpPendingWrites();
+    try {
+        await saveApiKeyRecord(record);
+    } catch (err) {
+        Object.assign(record, backup);
+        renderApiKeyList();
+        showToast('error', 'API Key 승인 실패', '저장에 실패했습니다. 다시 시도해주세요.');
+        dropPendingWrites();
+        return;
+    }
+    dropPendingWrites();
+
     renderApiKeyList();
     closeApikeyApproveModal();
 
@@ -4911,11 +5142,24 @@ async function rejectApiKey() {
 
     const userName = sessionStorage.getItem('userName') || localStorage.getItem('userName') || '알 수 없음';
 
+    const backup = { ...record };
+
     record.status = 'rejected';
     record.approver = userName;
     record.approveDate = new Date().toISOString().split('T')[0];
 
-    await saveApiKeyRecord(record);
+    bumpPendingWrites();
+    try {
+        await saveApiKeyRecord(record);
+    } catch (err) {
+        Object.assign(record, backup);
+        renderApiKeyList();
+        showToast('error', 'API Key 거절 실패', '저장에 실패했습니다. 다시 시도해주세요.');
+        dropPendingWrites();
+        return;
+    }
+    dropPendingWrites();
+
     renderApiKeyList();
     closeApikeyApproveModal();
 
@@ -4936,8 +5180,21 @@ async function deleteApiKey(recordId) {
 
     if (!confirm(`"${record.name}" API Key를 삭제하시겠습니까?`)) return;
 
+    const idx = apiKeyRecords.findIndex(r => r.id === recordId);
     apiKeyRecords = apiKeyRecords.filter(r => r.id !== recordId);
-    await deleteApiKeyFromFirebase(recordId);
+
+    bumpPendingWrites();
+    try {
+        await deleteApiKeyFromFirebase(recordId);
+    } catch (err) {
+        if (idx >= 0) apiKeyRecords.splice(idx, 0, record);
+        renderApiKeyList();
+        showToast('error', 'API Key 삭제 실패', '저장에 실패했습니다. 다시 시도해주세요.');
+        dropPendingWrites();
+        return;
+    }
+    dropPendingWrites();
+
     renderApiKeyList();
 
     showToast('success', 'API Key 삭제', `${record.name} API Key가 삭제되었습니다.`);
