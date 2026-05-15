@@ -411,21 +411,51 @@ function toggleEditMode() {
 
 async function saveEmployeeOrder() {
     if (!isEditMode) return;
-    
-    // 순서 인덱스 저장
+    if (employees.length === 0) {
+        exitEditMode();
+        return;
+    }
+
+    // 순서 인덱스 부여 (메모리)
     employees.forEach((emp, index) => {
         emp.sortOrder = index;
     });
-    
-    // Firebase에 저장
-    await saveData();
-    
-    // 편집 모드 종료
+
+    // employees만 multi-path update로 1회 RTT 저장 (휴가/야근은 건드리지 않음)
+    let saveOk = true;
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        bumpPendingWrites();
+        try {
+            const updates = {};
+            for (const emp of employees) {
+                const empData = {
+                    ...emp,
+                    sortOrder: emp.sortOrder !== undefined ? emp.sortOrder : 999
+                };
+                const cleaned = JSON.parse(JSON.stringify(empData, (k, v) => v === undefined ? null : v));
+                updates[`employees/${emp.id}`] = cleaned;
+            }
+            await database.ref().update(updates);
+            console.log('직원 순서 저장 완료 (multi-path):', employees.length + '명');
+        } catch (err) {
+            saveOk = false;
+            console.error('직원 순서 저장 실패:', err);
+        } finally {
+            dropPendingWrites();
+        }
+    }
+
+    if (!saveOk) {
+        // 원본 순서 복원, 편집 모드 유지하여 재시도 가능하게
+        employees = [...originalEmployeeOrder];
+        renderEmployeeSummary();
+        showErrorToast('순서 저장에 실패했습니다. 다시 시도해주세요.');
+        return;
+    }
+
     exitEditMode();
-    
-    // UI 업데이트
     renderEmployeeSummary();
-    
+
     showSuccessToast('직원 순서가 저장되었습니다');
 }
 
@@ -809,36 +839,71 @@ async function addEmployee() {
     
     // 새 직원의 sortOrder는 현재 직원 수로 설정 (맨 마지막에 추가)
     const newSortOrder = employees.length;
-    
+
     const employee = {
         id: Date.now(),
         name: name,
         joinDate: joinDate,
-        annualLeave: 0, // 연차
-        monthlyLeave: 0, // 월차
+        annualLeave: 0,
+        monthlyLeave: 0,
         usedAnnual: 0,
         usedMonthly: 0,
-        lastMonthlyUpdate: joinDate, // 마지막 월차 업데이트 날짜
-        sortOrder: newSortOrder // 순서 저장
+        lastMonthlyUpdate: joinDate,
+        sortOrder: newSortOrder
     };
-    
-    // 초기 연차/월차 계산
+
     calculateEmployeeLeaves(employee);
-    
     employees.push(employee);
-    
-    // 낙관적 업데이트: UI 먼저 즉시 반영
-    document.getElementById('employeeName').value = '';
-    document.getElementById('joinDate').value = '';
+
+    // 낙관적 UI 업데이트 + 입력값 백업 (실패 시 복원하기 위해)
+    const nameInput = document.getElementById('employeeName');
+    const joinDateInput = document.getElementById('joinDate');
+    const backupName = nameInput.value;
+    const backupJoinDate = joinDateInput.value;
+    nameInput.value = '';
+    joinDateInput.value = '';
     renderEmployeeSummary();
     updateModalEmployeeDropdown();
-    
-    // 백그라운드로 Firebase + 로컬 백업 저장
-    saveEmployee(employee).catch(error => {
-        console.error('직원 저장 실패:', error);
-        showErrorToast('직원 저장에 실패했습니다.');
-    });
-    saveData();
+
+    // 변경된 직원 1명만 await로 끝까지 보장
+    let saveOk = true;
+    if (isFirebaseEnabled && firebase.auth().currentUser) {
+        bumpPendingWrites();
+        try {
+            await saveEmployee(employee);
+        } catch (err) {
+            saveOk = false;
+            console.error('직원 저장 실패:', err);
+        } finally {
+            dropPendingWrites();
+        }
+    }
+
+    if (!saveOk) {
+        // 메모리 롤백 (ID 기반으로 안전하게 제거)
+        employees = employees.filter(e => e.id !== employee.id);
+        // 입력값 복원
+        nameInput.value = backupName;
+        joinDateInput.value = backupJoinDate;
+        renderEmployeeSummary();
+        updateModalEmployeeDropdown();
+        showErrorToast('직원 저장에 실패했습니다. 네트워크를 확인하고 다시 시도해주세요.');
+        return;
+    }
+
+    try {
+        const sanitized = employees.map(emp => ({
+            ...emp,
+            hrData: emp.hrData ? {
+                ...emp.hrData,
+                phone: emp.hrData.phone ? '***숨김***' : '',
+                ssn: emp.hrData.ssn ? '***숨김***' : '',
+                address: emp.hrData.address ? '***숨김***' : ''
+            } : undefined
+        }));
+        localStorage.setItem('employees', JSON.stringify(sanitized));
+        localStorage.setItem('lastUpdate', Date.now().toString());
+    } catch (e) { /* ignore */ }
 }
 
 // ===== 연차/월차 계산 캐싱 시스템 =====
@@ -3043,27 +3108,14 @@ function startRealTimeSync() {
     }, 5000);
 }
 
-// 다른 사용자와 동기화
+// 다른 사용자와 동기화 (토큰 업데이트 신호만 처리)
+// 직원/휴가/야근 동기화는 subscribeRealtimeData()의 Firebase 실시간 구독으로 자동 처리됨.
+// 기존 lastUpdate 비교는 같은 키를 두 번 읽는 데드 코드라 제거함.
 function syncWithOtherUsers() {
-    // localStorage에 마지막 업데이트 시간 저장
-    const lastUpdate = localStorage.getItem('lastUpdate') || '0';
-    
-    // 다른 창에서 업데이트가 있었는지 확인
-    const otherUpdate = localStorage.getItem('lastUpdate');
-    if (otherUpdate && otherUpdate !== lastUpdate) {
-        // 데이터 다시 로드
-        loadData();
-        renderCalendar();
-        renderEmployeeSummary();
-        updateModalEmployeeDropdown();
-    }
-    
-    // 토큰 업데이트 신호 확인
     const tokenUpdateSignal = localStorage.getItem('tokenUpdateSignal');
     const lastTokenUpdate = sessionStorage.getItem('lastTokenUpdate') || '0';
-    
+
     if (tokenUpdateSignal && tokenUpdateSignal !== lastTokenUpdate) {
-        // 토큰 목록 다시 로드
         loadActiveTokens();
         sessionStorage.setItem('lastTokenUpdate', tokenUpdateSignal);
         console.log('토큰 목록이 업데이트되었습니다.');
