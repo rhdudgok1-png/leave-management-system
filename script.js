@@ -2531,6 +2531,25 @@ function initializeFirebase() {
 
                                     // 마지막 사용 시간 업데이트
                                     database.ref(`authorized_users/${emailKey}/lastUsed`).set(new Date().toISOString());
+
+                                    // uid 인덱스 자동 동기화 (Firebase 보안 규칙용)
+                                    // RTDB 보안 규칙은 정규식 미지원이라 emailKey 변환을 못함.
+                                    // uid는 변환 없이 직접 lookup 가능하므로 별도 인덱스를 둠.
+                                    // 사용자가 로그인할 때마다 최신 권한 정보로 갱신됨.
+                                    try {
+                                        await database.ref(`authorized_users_by_uid/${user.uid}`).set({
+                                            email: email,
+                                            role: role,
+                                            name: authorizedUserName,
+                                            status: authorizedUser.status,
+                                            expires: authorizedUser.expires,
+                                            syncedAt: new Date().toISOString()
+                                        });
+                                        console.log(`🔗 uid 인덱스 동기화 완료: ${user.uid}`);
+                                    } catch (syncErr) {
+                                        // 인덱스 동기화 실패해도 로그인 자체는 진행 (기존 동작 유지)
+                                        console.warn('uid 인덱스 동기화 실패(무시):', syncErr);
+                                    }
                                 } else {
                                     denyReason = `사용 권한이 만료되었습니다. (만료일: ${authorizedUser.expires})`;
                                     console.log(`⚠️ 권한 만료됨: ${email}, 만료일: ${authorizedUser.expires}`);
