@@ -1006,11 +1006,14 @@ function calculateEmployeeLeaves(employee) {
 }
 
 // 모든 직원의 연차/월차 계산
+// 메모리 재계산 + 화면 갱신만 수행. 저장은 하지 않음.
+// (60초 setInterval로 호출되므로 saveData 호출 시 변경 없는 데이터까지
+//  216건 순차 저장이 돌아가 휴가 등록 직후 페이지 닫기 사고 유발)
+// 잔여 휴가는 다음 페이지 로드 시 휴가 기록 기반으로 자동 재계산되므로 안전.
 function calculateLeaves() {
     employees.forEach(employee => {
-        calculateEmployeeLeavesWithCache(employee); // 캐싱 적용
+        calculateEmployeeLeavesWithCache(employee);
     });
-    saveData();
     renderEmployeeSummary();
 }
 
@@ -1826,6 +1829,8 @@ async function cleanupInvalidLeaveRecords() {
 }
 
 // 데이터 저장 (보안 강화된 Firebase + 로컬 백업)
+// multi-path update로 1회 RTT에 끝내도록 리팩터.
+// 기존 N+M+K번 순차 await 패턴은 페이지 닫기 시 유실 위험이 컸음.
 async function saveData() {
     // 로컬 백업 (민감정보 제외)
     const sanitizedEmployees = employees.map(emp => ({
@@ -1837,37 +1842,49 @@ async function saveData() {
             address: emp.hrData.address ? '***숨김***' : ''
         } : undefined
     }));
-    
+
     localStorage.setItem('employees', JSON.stringify(sanitizedEmployees));
     localStorage.setItem('leaveRecords', JSON.stringify(leaveRecords));
     localStorage.setItem('lastUpdate', Date.now().toString());
     localStorage.setItem('overtimeRecords', JSON.stringify(overtimeRecords));
-    
-    // Firebase에 보안 인증된 상태로 저장
-    if (isFirebaseEnabled && firebase.auth().currentUser) {
-        try {
-            // 직원들 개별 저장
-            for (const employee of employees) {
-                await saveEmployee(employee);
-            }
-            
-            // 휴가 기록들 개별 저장
-            for (const record of leaveRecords) {
-                await saveLeaveRecord(record);
-            }
 
-            // 야근 기록들 개별 저장
-            for (const o of overtimeRecords) {
-                await saveOvertimeRecord(o);
-            }
-            
-            await database.ref('lastUpdate').set(Date.now());
-            console.log('Firebase에 보안 인증된 상태로 데이터 저장 완료');
-        } catch (error) {
-            console.log('Firebase 저장 실패, 로컬만 사용:', error);
-        }
-    } else {
+    if (!isFirebaseEnabled || !firebase.auth().currentUser) {
         console.log('로컬 저장소에만 데이터 저장 (Firebase 인증 대기중)');
+        return;
+    }
+
+    bumpPendingWrites();
+    try {
+        const updates = {};
+
+        for (const emp of employees) {
+            const empData = {
+                ...emp,
+                sortOrder: emp.sortOrder !== undefined ? emp.sortOrder : 999
+            };
+            const cleaned = JSON.parse(JSON.stringify(empData, (k, v) => v === undefined ? null : v));
+            updates[`employees/${emp.id}`] = cleaned;
+        }
+
+        for (const r of leaveRecords) {
+            const safeId = r.id.toString().replace(/\./g, '_');
+            updates[`leaveRecords/${safeId}`] = { ...r, id: safeId };
+        }
+
+        for (const o of overtimeRecords) {
+            updates[`overtimeRecords/${o.id}`] = o;
+        }
+
+        updates['lastUpdate'] = Date.now();
+
+        // 1회 RTT로 모든 변경사항을 원자적으로 적용
+        await database.ref().update(updates);
+        console.log('Firebase 저장 완료 (multi-path 1회 RTT):',
+            `직원 ${employees.length}, 휴가 ${leaveRecords.length}, 야근 ${overtimeRecords.length}`);
+    } catch (error) {
+        console.log('Firebase 저장 실패, 로컬만 사용:', error);
+    } finally {
+        dropPendingWrites();
     }
 }
 
