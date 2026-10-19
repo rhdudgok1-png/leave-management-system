@@ -91,6 +91,26 @@ async function googleLoginForAdmin() {
     }
 }
 
+// 로그아웃 후 다른 Google 계정으로 로그인
+async function switchAdminAccount() {
+    if (!auth) return;
+    await auth.signOut();
+    document.getElementById('adminPanel').style.display = 'none';
+    document.getElementById('adminAuth').style.display = 'block';
+    document.getElementById('passwordSection').style.display = 'none';
+    document.getElementById('adminError').style.display = 'none';
+    document.getElementById('googleLoginSection').style.display = 'block';
+    document.getElementById('googleLoginStatus').innerHTML = '';
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    try {
+        await auth.signInWithPopup(provider);
+    } catch (error) {
+        console.log('계정 선택 취소 또는 실패:', error.message);
+    }
+}
+
 // Firebase에서 토큰들 실시간 로드
 function loadTokensFromFirebase() {
     if (!isFirebaseEnabled) return;
