@@ -176,7 +176,7 @@ function loadTokensFromGitHub() {
     }
 }
 
-// 관리자 인증: authorized_users에서 admin + active 인지 확인
+// 관리자 인증: authorized_users에서 admin + active + 만료 전인지 확인
 async function authenticateAdmin(user) {
     const errorDiv = document.getElementById('adminError');
     if (!errorDiv) return;
@@ -186,7 +186,8 @@ async function authenticateAdmin(user) {
         const emailKey = user.email.toLowerCase().replace(/\./g, '_dot_').replace(/@/g, '_at_');
         const snapshot = await database.ref(`authorized_users/${emailKey}`).once('value');
         const userInfo = snapshot.val();
-        isAdmin = !!userInfo && userInfo.role === 'admin' && userInfo.status === 'active';
+        isAdmin = !!userInfo && userInfo.role === 'admin' && userInfo.status === 'active'
+            && new Date(userInfo.expires) >= new Date();
     } catch (error) {
         console.error('관리자 권한 확인 실패:', error);
     }
@@ -688,7 +689,7 @@ async function refreshAuthorizedUsers() {
                 <div class="token-actions">
                     ${status === 'active' ? 
                         `<button class="btn btn-danger" onclick="revokeAuthorizedUser('${emailKey}')">해지</button>` :
-                        `<button class="btn btn-success" onclick="reactivateAuthorizedUser('${emailKey}')">재활성화</button>`
+                        `<button class="btn btn-success" onclick="reactivateAuthorizedUser('${emailKey}', ${isExpired})">재활성화</button>`
                     }
                     <button class="btn btn-danger" onclick="deleteAuthorizedUser('${emailKey}')">삭제</button>
                 </div>
@@ -717,16 +718,34 @@ async function revokeAuthorizedUser(emailKey) {
     }
 }
 
-// 등록된 사용자 재활성화
-async function reactivateAuthorizedUser(emailKey) {
-    if (confirm('이 사용자의 권한을 재활성화하시겠습니까?')) {
-        try {
-            await database.ref(`authorized_users/${emailKey}/status`).set('active');
-            await refreshAuthorizedUsers();
-            alert('사용자 권한이 재활성화되었습니다.');
-        } catch (error) {
-            alert('재활성화 실패: ' + error.message);
+// 등록된 사용자 재활성화 (만료된 경우 새 만료일도 함께 갱신)
+async function reactivateAuthorizedUser(emailKey, isExpired) {
+    const updates = { status: 'active' };
+
+    if (isExpired) {
+        const nextYear = new Date();
+        nextYear.setFullYear(nextYear.getFullYear() + 1);
+        const input = prompt('만료일이 지난 사용자입니다.\n새 만료일을 입력하세요 (YYYY-MM-DD):', nextYear.toISOString().split('T')[0]);
+        if (input === null) return;
+
+        const newExpiry = input.trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(newExpiry) || isNaN(new Date(newExpiry)) || new Date(newExpiry) <= new Date()) {
+            alert('만료일은 오늘 이후 날짜를 YYYY-MM-DD 형식으로 입력해야 합니다.');
+            return;
         }
+        updates.expires = newExpiry;
+    } else if (!confirm('이 사용자의 권한을 재활성화하시겠습니까?')) {
+        return;
+    }
+
+    try {
+        await database.ref(`authorized_users/${emailKey}`).update(updates);
+        await refreshAuthorizedUsers();
+        alert(updates.expires
+            ? `사용자 권한이 재활성화되었습니다. (만료일: ${updates.expires})`
+            : '사용자 권한이 재활성화되었습니다.');
+    } catch (error) {
+        alert('재활성화 실패: ' + error.message);
     }
 }
 
