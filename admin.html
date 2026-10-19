@@ -146,7 +146,7 @@
         <div id="adminAuth" style="display: block;">
             <div style="text-align: center; padding: 50px;">
                 <h3>관리자 인증</h3>
-                <p style="color: #666; margin-bottom: 20px;">Google 로그인 후 관리자 비밀번호를 입력하세요</p>
+                <p style="color: #666; margin-bottom: 20px;">관리자로 등록된 Google 계정으로 로그인하세요</p>
                 
                 <!-- Google 로그인 상태 -->
                 <div id="googleLoginSection">
@@ -156,21 +156,15 @@
                     <div id="googleLoginStatus" style="margin: 10px 0; color: #666;"></div>
                 </div>
                 
-                <!-- 비밀번호 입력 (Google 로그인 후 표시) -->
+                <!-- 로그인 상태 (Google 로그인 후 표시, 관리자 권한 확인 중) -->
                 <div id="passwordSection" style="display: none;">
                     <div style="background: #d4edda; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
                         ✅ <span id="loggedInEmail"></span> 로그인됨
                     </div>
-                    <input type="password" id="adminPassword" placeholder="관리자 비밀번호" 
-                           style="padding: 12px; margin: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                    <br>
-                    <button onclick="authenticateAdmin()" class="generate-btn" style="width: auto; margin-top: 10px;">
-                        관리자 패널 열기
-                    </button>
                 </div>
-                
+
                 <div id="adminError" style="color: red; margin-top: 10px; display: none;">
-                    잘못된 관리자 비밀번호입니다.
+                    관리자 권한이 없는 계정입니다. 활성 상태의 관리자로 등록된 계정으로 로그인하세요.
                 </div>
             </div>
         </div>

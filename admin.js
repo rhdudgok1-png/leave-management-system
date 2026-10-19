@@ -1,6 +1,3 @@
-// 관리자 설정
-const ADMIN_PASSWORD = 'admin2025!@#';
-
 // Firebase 설정
 const firebaseConfig = {
     apiKey: "AIzaSyA-zccMlou2FoqmiBc3XpqQUhOMv0XoJ_M",
@@ -33,16 +30,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Firebase에서 토큰들 로드 (단일 진실원)
     loadTokensFromFirebase();
     
-    // Enter 키로 관리자 로그인
-    const adminPwInput = document.getElementById('adminPassword');
-    if (!adminPwInput) return; // 관리자 페이지가 아니면 조용히 종료
-    
-    adminPwInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            authenticateAdmin();
-        }
-    });
-    
+    if (!document.getElementById('adminPanel')) return; // 관리자 페이지가 아니면 조용히 종료
+
     // 기본 만료일 설정 (1년 후)
     const nextYear = new Date();
     nextYear.setFullYear(nextYear.getFullYear() + 1);
@@ -67,6 +56,7 @@ function initializeFirebase() {
                     document.getElementById('passwordSection').style.display = 'block';
                     document.getElementById('loggedInEmail').textContent = user.email;
                     console.log('Google 로그인 상태:', user.email);
+                    authenticateAdmin(user);
                 } else {
                     isGoogleLoggedIn = false;
                 }
@@ -186,12 +176,23 @@ function loadTokensFromGitHub() {
     }
 }
 
-// 관리자 인증
-async function authenticateAdmin() {
-    const password = document.getElementById('adminPassword').value;
+// 관리자 인증: authorized_users에서 admin + active 인지 확인
+async function authenticateAdmin(user) {
     const errorDiv = document.getElementById('adminError');
-    
-    if (password === ADMIN_PASSWORD) {
+    if (!errorDiv) return;
+
+    let isAdmin = false;
+    try {
+        const emailKey = user.email.toLowerCase().replace(/\./g, '_dot_').replace(/@/g, '_at_');
+        const snapshot = await database.ref(`authorized_users/${emailKey}`).once('value');
+        const userInfo = snapshot.val();
+        isAdmin = !!userInfo && userInfo.role === 'admin' && userInfo.status === 'active';
+    } catch (error) {
+        console.error('관리자 권한 확인 실패:', error);
+    }
+
+    if (isAdmin) {
+        errorDiv.style.display = 'none';
         document.getElementById('adminAuth').style.display = 'none';
         document.getElementById('adminPanel').style.display = 'block';
         
@@ -203,8 +204,6 @@ async function authenticateAdmin() {
         await updateStats();
     } else {
         errorDiv.style.display = 'block';
-        document.getElementById('adminPassword').value = '';
-        document.getElementById('adminPassword').focus();
     }
 }
 
